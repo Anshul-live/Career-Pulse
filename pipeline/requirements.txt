@@ -1,0 +1,9 @@
+pandas
+scikit-learn
+aiohttp
+beautifulsoup4
+requests
+lxml
+joblib
+google-api-python-client
+google-auth-oauthlib

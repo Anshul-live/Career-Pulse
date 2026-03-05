@@ -4,6 +4,7 @@ import { google } from "googleapis";
 import { Email } from "../models/email.model.js";
 import { User } from "../models/user.model.js";
 import { updateEmailStatuses, getFilteredStats } from "../utils/emailStatusManager.js";
+import { groupEmailsIntoApplications } from "../services/application.service.js";
 
 export const getJobEmailStats = async (req, res) => {
     console.log("REQ.USER 👉", req.user);
@@ -70,6 +71,7 @@ export const uploadEmails = async (req, res) => {
                         company_name: email.company_name || null,
                         role: email.role || null,
                         role_id: email.role_id || null,
+                        application_id: email.application_id || null,
                         interview_datetime: safeDate(email.interview_datetime),
                         mode: email.mode || null,
                         platform: email.platform || null,
@@ -90,12 +92,16 @@ export const uploadEmails = async (req, res) => {
 
         await updateEmailStatuses(userId);
 
+        // Group emails into applications
+        const groupResult = await groupEmailsIntoApplications(userId);
+
         res.json({
             success: true,
             message: `Successfully processed ${emails.length} emails`,
             count: emails.length,
             inserted: result.insertedCount || 0,
-            updated: result.modifiedCount || 0
+            updated: result.modifiedCount || 0,
+            applications: groupResult
         });
 
     } catch (error) {

@@ -341,6 +341,12 @@ const Dashboard = () => {
               </svg>
               Upload JSON
             </Link>
+            <Link
+              to="/applications"
+              className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-2"
+            >
+              📋 Applications
+            </Link>
           </div>
         </div>
 

@@ -10,6 +10,8 @@ import Dashboard from "./components/Dashboard/Dashboard";
 import { Routes, Route,Navigate } from "react-router-dom";
 import OAuthSuccess from "./pages/OAuthSuccess"; 
 import UploadEmails from "./pages/UploadEmails";
+import ApplicationsList from "./components/Applications/ApplicationsList";
+import ApplicationDetail from "./components/Applications/ApplicationDetail";
 
 
 
@@ -71,6 +73,26 @@ function App() {
           <>
             <Navbar />
             <Dashboard />
+          </>
+        }
+      />
+
+      <Route
+        path="/applications"
+        element={
+          <>
+            <Navbar />
+            <ApplicationsList />
+          </>
+        }
+      />
+
+      <Route
+        path="/applications/:id"
+        element={
+          <>
+            <Navbar />
+            <ApplicationDetail />
           </>
         }
       />

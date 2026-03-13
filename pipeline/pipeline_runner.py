@@ -456,9 +456,9 @@ def main():
     )
 
     # Step 4: Feature extraction
-    # success, count = run(["python3", "extract.py"],
-    # stage_name="Feature Extraction (LLM)",
-    # details={"model": "llama3.1:8b"})
+    success, count = run(["python3", "extract.py"],
+    stage_name="Feature Extraction (LLM)",
+    details={"model": "llama3.1:8b"})
 
     # Step 5: Convert to JSON
     success, count = run(

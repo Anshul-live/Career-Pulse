@@ -4,7 +4,7 @@ import React from 'react'
 import { useEffect, useState } from "react";
 import {NavLink,Link,useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import logo from '../../assets/logo.png';
+// import logo from '../../assets/logo.png';
 
 const Navbar = () => {
 

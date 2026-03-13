@@ -39,12 +39,50 @@ Automatic job application tracking system that processes Gmail emails through a 
 career-pulse/
 ├── backend/           # Express.js API server
 ├── frontend/          # React + Vite dashboard
-└── pipeline/          # Python ML/LLM processing
+├── pipeline/          # Python ML/LLM processing
+└── careerpulse.py     # Unified startup script
+```
+
+## Quick Start (Demo Mode)
+
+Run everything with one command:
+
+```bash
+# Start all services (MongoDB + Backend + Frontend)
+python3 careerpulse.py
+
+# Start services + run pipeline
+python3 careerpulse.py --pipeline
+
+# Start services + run pipeline (skip email fetch)
+python3 careerpulse.py --pipeline --skip-fetch
+
+# Start services + run pipeline + upload to backend
+python3 careerpulse.py --pipeline --skip-fetch --upload
+```
+
+**careerpulse.py** automatically:
+- Starts MongoDB (if not running)
+- Checks Ollama status
+- Starts Backend on http://localhost:8000
+- Starts Frontend on http://localhost:5173
+
+### Other Commands
+
+```bash
+# Stop all services
+python3 careerpulse.py --stop
+
+# Start MongoDB only
+python3 careerpulse.py --mongo-only
+
+# See all options
+python3 careerpulse.py --help
 ```
 
 ---
 
-## Setup Guide
+## Setup Guide (Manual)
 
 ### Step 1: Google Cloud Console Setup
 

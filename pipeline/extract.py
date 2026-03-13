@@ -82,11 +82,12 @@ APPLIED_FALLBACK_RE = re.compile(
 # SCHEMAS
 # =========================
 SCHEMA_MAP = {
-    "applied": ["company_name", "role", "role_id"],
+    "applied": ["company_name", "role", "role_id", "application_id"],
     "interview": [
         "company_name",
         "role",
         "role_id",
+        "application_id",
         "interview_datetime",
         "mode",
         "platform",
@@ -97,6 +98,7 @@ SCHEMA_MAP = {
         "company_name",
         "role",
         "role_id",
+        "application_id",
         "deadline_datetime",
         "platform",
         "duration",
@@ -106,12 +108,13 @@ SCHEMA_MAP = {
         "company_name",
         "role",
         "role_id",
+        "application_id",
         "compensation",
         "joining_date",
         "location",
     ],
-    "rejected": ["company_name", "role", "role_id"],
-    "unknown": ["company_name", "role", "role_id"],
+    "rejected": ["company_name", "role", "role_id", "application_id"],
+    "unknown": ["company_name", "role", "role_id", "application_id"],
 }
 
 FINAL_BUCKETS = {k: [] for k in SCHEMA_MAP}

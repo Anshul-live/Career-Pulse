@@ -81,16 +81,28 @@ def parse_date_to_rfc(date_str):
         return None
 
 
-def fetch_emails_to_csv(output_file="my_emails.csv", max_results=500, cutoff_date=None):
+def fetch_emails_to_csv(output_file="my_emails.csv", max_results=500, cutoff_date=None, start_date=None, end_date=None):
     creds = authenticate()
     service = build("gmail", "v1", credentials=creds)
 
-    if cutoff_date:
-        query = f"after:{cutoff_date.strftime('%Y/%m/%d')}"
-        print(f"Fetching emails after {cutoff_date.strftime('%Y-%m-%d')}")
+    query_parts = []
+    
+    if start_date:
+        query_parts.append(f"after:{start_date.strftime('%Y/%m/%d')}")
+    elif cutoff_date:
+        query_parts.append(f"after:{cutoff_date.strftime('%Y/%m/%d')}")
+    else:
+        query_parts.append("newer_than:30d")
+    
+    if end_date:
+        query_parts.append(f"before:{end_date.strftime('%Y/%m/%d')}")
+    
+    if query_parts:
+        query = " ".join(query_parts)
+        print(f"Query: {query}")
     else:
         query = "newer_than:30d"
-        print("No cutoff date provided, fetching last 30 days")
+        print("No date filters provided, fetching last 30 days")
 
     response = (
         service.users()
@@ -141,15 +153,26 @@ def fetch_emails_to_csv(output_file="my_emails.csv", max_results=500, cutoff_dat
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fetch emails from Gmail")
-    parser.add_argument("--cutoff", type=str, help="Cutoff date (YYYY-MM-DD)")
+    parser.add_argument("--cutoff", type=str, help="Cutoff date (YYYY-MM-DD) - fetch after this date")
+    parser.add_argument("--start-date", type=str, help="Start date (YYYY-MM-DD) - fetch after this date")
+    parser.add_argument("--end-date", type=str, help="End date (YYYY-MM-DD) - fetch before this date")
     parser.add_argument("--output", type=str, default="my_emails.csv", help="Output CSV file")
     parser.add_argument("--max", type=int, default=500, help="Max results")
     
     args = parser.parse_args()
     
     cutoff_date = None
+    start_date = None
+    end_date = None
+    
     if args.cutoff:
         cutoff_date = datetime.strptime(args.cutoff, "%Y-%m-%d")
     
-    count = fetch_emails_to_csv(args.output, args.max, cutoff_date)
+    if args.start_date:
+        start_date = datetime.strptime(args.start_date, "%Y-%m-%d")
+    
+    if args.end_date:
+        end_date = datetime.strptime(args.end_date, "%Y-%m-%d")
+    
+    count = fetch_emails_to_csv(args.output, args.max, cutoff_date, start_date, end_date)
     print(f"Done! Fetched {count} emails")

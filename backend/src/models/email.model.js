@@ -63,6 +63,15 @@ const emailSchema = new Schema(
             type: String,
             default: null
         },
+        application_id: {
+            type: String,
+            default: null
+        },
+        group_id: {
+            type: Schema.Types.ObjectId,
+            ref: "Group",
+            default: null
+        },
         interview_datetime: {
             type: Date,
             default: null

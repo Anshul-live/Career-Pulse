@@ -4,6 +4,7 @@ import { google } from "googleapis";
 import { Email } from "../models/email.model.js";
 import { User } from "../models/user.model.js";
 import { updateEmailStatuses, getFilteredStats } from "../utils/emailStatusManager.js";
+import { processGroupsForUser, deleteGroupsForUser } from "../services/group.service.js";
 
 export const getJobEmailStats = async (req, res) => {
     console.log("REQ.USER 👉", req.user);
@@ -70,6 +71,7 @@ export const uploadEmails = async (req, res) => {
                         company_name: email.company_name || null,
                         role: email.role || null,
                         role_id: email.role_id || null,
+                        application_id: email.application_id || null,
                         interview_datetime: safeDate(email.interview_datetime),
                         mode: email.mode || null,
                         platform: email.platform || null,
@@ -90,12 +92,23 @@ export const uploadEmails = async (req, res) => {
 
         await updateEmailStatuses(userId);
 
+        const insertedIds = result.insertedIds ? Object.values(result.insertedIds) : [];
+        const updatedEmails = await Email.find({
+            message_id: {$in: emails.map(e => e.message_id)},
+            user_id: userId
+        }).select("_id");
+
+        const allEmailIds = updatedEmails.map(e => e._id);
+        
+        const groupResult = await processGroupsForUser(userId, allEmailIds);
+
         res.json({
             success: true,
             message: `Successfully processed ${emails.length} emails`,
             count: emails.length,
             inserted: result.insertedCount || 0,
-            updated: result.modifiedCount || 0
+            updated: result.modifiedCount || 0,
+            groups: groupResult
         });
 
     } catch (error) {
@@ -261,18 +274,64 @@ export const deleteAllEmails = async (req, res) => {
     try {
         const userId = req.user._id;
         
-        const result = await Email.deleteMany({ user_id: userId });
+        const emailResult = await Email.deleteMany({ user_id: userId });
+        const groupResult = await deleteGroupsForUser(userId);
 
         res.json({
             success: true,
-            message: "All emails deleted",
-            deletedCount: result.deletedCount
+            message: "All emails and groups deleted",
+            deletedEmails: emailResult.deletedCount,
+            deletedGroups: groupResult
         });
     } catch (error) {
         console.error("Error deleting emails:", error);
         res.status(500).json({
             success: false,
             message: error.message || "Failed to delete emails"
+        });
+    }
+};
+
+export const deleteEmail = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { emailId } = req.params;
+
+        const email = await Email.findOne({ _id: emailId, user_id: userId });
+
+        if (!email) {
+            return res.status(404).json({
+                success: false,
+                message: "Email not found"
+            });
+        }
+
+        await Email.deleteOne({ _id: emailId });
+
+        if (email.group_id) {
+            const { Group } = await import("../models/group.model.js");
+            const group = await Group.findById(email.group_id);
+            if (group) {
+                group.email_ids = group.email_ids.filter(
+                    id => id.toString() !== emailId
+                );
+                if (group.email_ids.length === 0) {
+                    await Group.deleteOne({ _id: group._id });
+                } else {
+                    await group.save();
+                }
+            }
+        }
+
+        res.json({
+            success: true,
+            message: "Email deleted"
+        });
+    } catch (error) {
+        console.error("Error deleting email:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message || "Failed to delete email"
         });
     }
 };

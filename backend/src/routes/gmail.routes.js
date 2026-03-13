@@ -1,6 +1,6 @@
 import express from "express";
 import passport from "passport";
-import { getJobEmailStats, uploadEmails, getEmails, updateEmailStatus, refreshStatuses, getLastFetchDate, updateLastFetchDate, deleteAllEmails } from "../controllers/gmail.controller.js";
+import { getJobEmailStats, uploadEmails, getEmails, updateEmailStatus, refreshStatuses, getLastFetchDate, updateLastFetchDate, deleteAllEmails, deleteEmail } from "../controllers/gmail.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
@@ -27,6 +27,12 @@ router.put(
   "/emails/:emailId/status",
   verifyJWT,
   updateEmailStatus
+);
+
+router.delete(
+  "/emails/:emailId",
+  verifyJWT,
+  deleteEmail
 );
 
 router.delete(

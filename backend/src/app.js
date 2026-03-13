@@ -42,6 +42,9 @@ app.use("/users",userRouter);
 import gmailRoutes from "./routes/gmail.routes.js";
 app.use("/gmail", gmailRoutes);
 
+import groupRoutes from "./routes/group.routes.js";
+app.use("/groups", groupRoutes);
+
 
 app.use((err, req, res, next) => {
     console.log(" ERROR CAUGHT:", err.message);

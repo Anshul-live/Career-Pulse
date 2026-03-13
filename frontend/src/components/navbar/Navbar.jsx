@@ -1,103 +1,122 @@
-
-
-import React from 'react'
-import { useEffect, useState } from "react";
-import {NavLink,Link,useNavigate } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-// import logo from '../../assets/logo.png';
+import { 
+  Briefcase, 
+  Layers, 
+  Home, 
+  LogOut, 
+  User,
+  Menu,
+  X,
+  ChevronDown,
+  Settings,
+  LogIn
+} from "lucide-react";
 
-const Navbar = () => {
-
+export default function Navbar() {
   const navigate = useNavigate(); 
   const { isLoggedIn } = useAuth();
-
-  const handleGetStarted = () => {
-    navigate("/signup"); 
-    
-  };
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-
-    alert("Logout Successfully");
     navigate("/");
     window.location.reload();
   };
 
-
-  const Homepage = () => {
-    navigate("/"); 
-  };
+  const navItems = [
+    { to: "/", label: "Home", icon: Home },
+    { to: "/dashboard", label: "Dashboard", icon: Briefcase },
+    { to: "/groups", label: "Groups", icon: Layers },
+  ];
 
   return (
-    <div>
-  <nav className="relative bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 shadow-lg">
-  <div className="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
-    <div className="relative flex h-16 items-center justify-between">
-      <div class="absolute inset-y-0 left-0 flex items-center sm:hidden">
-        <button type="button" command="--toggle" commandfor="mobile-menu" class="relative inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-white/10 hover:text-white focus:outline-2 focus:-outline-offset-1 focus:outline-indigo-500 transition-colors">
-          <span className="absolute -inset-0.5"></span>
-          <span className="sr-only">Open main menu</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" data-slot="icon" aria-hidden="true" class="size-6 in-aria-expanded:hidden">
-            <path d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" data-slot="icon" aria-hidden="true" class="size-6 not-in-aria-expanded:hidden">
-            <path d="M6 18 18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </button>
-      </div>
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-xl border-b border-zinc-800 h-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
+              <Briefcase className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-lg font-semibold text-zinc-100">CareerPulse</span>
+          </Link>
 
-      <div class="flex flex-1 items-center justify-center sm:items-stretch sm:justify-start">
-        <div class="flex shrink-0 items-center">
-          <h1 onClick={Homepage} className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent cursor-pointer hover:from-blue-300 hover:to-indigo-300 transition-all">
-            Career-Pulse
-          </h1>
-        </div>
-        <div className="hidden sm:ml-6 sm:block">
-          <div className="flex space-x-2">
-            <NavLink
-                   to="/dashboard"
-                   className={({ isActive }) =>
-                     `rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
-                       isActive
-                         ? "bg-white/10 text-white border-b-2 border-blue-500"
-                         : "text-gray-300 hover:bg-white/5 hover:text-white"
-                     }`
-                   }
-                 >
-                   Dashboard
-            </NavLink>  
+          {/* Desktop Nav */}
+          <div className="hidden md:flex items-center gap-1">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    isActive
+                      ? "bg-zinc-800 text-zinc-100"
+                      : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900"
+                  }`
+                }
+              >
+                <item.icon className="w-4 h-4" />
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
+
+          {/* Right side */}
+          <div className="flex items-center gap-3">
+            {isLoggedIn ? (
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-all"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-zinc-100 text-zinc-900 hover:bg-zinc-200 transition-all"
+              >
+                <LogIn className="w-4 h-4" />
+                Sign In
+              </Link>
+            )}
+
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
         </div>
-      </div>
-      <div className="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
-        <button type="button" class="relative rounded-full p-2 text-gray-400 hover:text-white focus:outline-2 focus:outline-offset-2 focus:outline-indigo-500 transition-colors">
-          <span className="absolute -inset-1.5"></span>
-          <span className="sr-only">View notifications</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" data-slot="icon" aria-hidden="true" class="size-6">
-            <path d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </button>
 
-              <button
-                onClick={isLoggedIn ? handleLogout : handleGetStarted}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold ml-4 px-5 py-2.5 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+        {/* Mobile Nav */}
+        {mobileMenuOpen && (
+          <div className="md:hidden py-4 border-t border-zinc-800">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => setMobileMenuOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                    isActive
+                      ? "bg-zinc-800 text-zinc-100"
+                      : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900"
+                  }`
+                }
               >
-                {isLoggedIn ? "Logout" : "Get Started"}
-              </button>
-           
+                <item.icon className="w-4 h-4" />
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
-  </div>
-
- 
-</nav>
-      
-    </div>
-  )
+    </nav>
+  );
 }
-
-export default Navbar
-
-

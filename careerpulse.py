@@ -124,7 +124,7 @@ def start_frontend():
     
     return proc
 
-def run_pipeline(skip_fetch=False, upload=False):
+def run_pipeline(skip_fetch=False, upload=False, start_date=None, end_date=None):
     """Run the email processing pipeline."""
     print("\nRunning Pipeline...")
     
@@ -133,6 +133,10 @@ def run_pipeline(skip_fetch=False, upload=False):
         cmd.append("--skip-fetch")
     if upload:
         cmd.append("--upload")
+    if start_date:
+        cmd.extend(["--start-date", start_date])
+    if end_date:
+        cmd.extend(["--end-date", end_date])
     
     result = subprocess.run(cmd, cwd=PIPELINE_DIR)
     return result.returncode == 0
@@ -188,6 +192,8 @@ def main():
     parser.add_argument("--mongo-only", action="store_true", help="Start MongoDB only")
     parser.add_argument("--backend-only", action="store_true", help="Start backend only")
     parser.add_argument("--stop", action="store_true", help="Stop all services")
+    parser.add_argument("--start-date", type=str, help="Start date (YYYY-MM-DD) for email fetch")
+    parser.add_argument("--end-date", type=str, help="End date (YYYY-MM-DD) for email fetch")
     
     args = parser.parse_args()
     
@@ -220,7 +226,12 @@ def main():
         print("\n" + "="*50)
         print("Running Pipeline")
         print("="*50)
-        run_pipeline(skip_fetch=args.skip_fetch, upload=args.upload)
+        run_pipeline(
+            skip_fetch=args.skip_fetch, 
+            upload=args.upload,
+            start_date=args.start_date,
+            end_date=args.end_date
+        )
     
     # Keep running
     print("\nAll services started!")

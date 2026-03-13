@@ -1,67 +1,46 @@
 import React from 'react'
+import { Briefcase, Github, Twitter, Linkedin } from "lucide-react";
 
 const Footer = () => {
   return (
-    <div>
-      <footer className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-gray-300 py-12 px-6 border-t border-white/10">
-      <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
-        
-        {/* 1️⃣ Brand Section */}
-        <div>
-          <h2 className="text-2xl font-bold mb-4">
-            <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Job Tracker</span>
-          </h2>
-          <p className="text-gray-400 text-sm leading-relaxed">
-            Simplify your job search. Track applications, get reminders, and land your dream job effortlessly.
-          </p>
-        </div>
+    <footer className="bg-black border-t border-zinc-900 py-12 px-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          {/* Brand */}
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
+              <Briefcase className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-zinc-400">CareerPulse</span>
+          </div>
 
-        {/* 2️⃣ Quick Links */}
-        <div>
-          <h3 className="text-lg font-semibold text-white mb-4">Quick Links</h3>
-          <ul className="space-y-3 text-gray-400 text-sm">
-            <li><a href="#" className="hover:text-blue-400 transition-colors">Home</a></li>
-            <li><a href="#" className="hover:text-blue-400 transition-colors">How It Works</a></li>
-            <li><a href="#" className="hover:text-blue-400 transition-colors">Features</a></li>
-            <li><a href="#" className="hover:text-blue-400 transition-colors">Contact</a></li>
-          </ul>
-        </div>
+          {/* Links */}
+          <div className="flex items-center gap-6 text-sm text-zinc-500">
+            <a href="#" className="hover:text-zinc-300 transition-colors">Privacy</a>
+            <a href="#" className="hover:text-zinc-300 transition-colors">Terms</a>
+            <a href="#" className="hover:text-zinc-300 transition-colors">Contact</a>
+          </div>
 
-        {/* 3️⃣ Resources */}
-        <div>
-          <h3 className="text-lg font-semibold text-white mb-4">Resources</h3>
-          <ul className="space-y-3 text-gray-400 text-sm">
-            <li><a href="#" className="hover:text-blue-400 transition-colors">FAQs</a></li>
-            <li><a href="#" className="hover:text-blue-400 transition-colors">Privacy Policy</a></li>
-            <li><a href="#" className="hover:text-blue-400 transition-colors">Terms of Service</a></li>
-            <li><a href="#" className="hover:text-blue-400 transition-colors">Support</a></li>
-          </ul>
-        </div>
-
-        {/* 4️⃣ Social Media */}
-        <div>
-          <h3 className="text-lg font-semibold text-white mb-4">Follow Us</h3>
-          <div className="flex gap-4">
-            <a href="#" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-blue-500 hover:text-white transition-all duration-300">
-              <span>🐦</span>
+          {/* Social */}
+          <div className="flex items-center gap-3">
+            <a href="#" className="w-9 h-9 bg-zinc-900 rounded-lg flex items-center justify-center hover:bg-zinc-800 transition-colors">
+              <Twitter className="w-4 h-4 text-zinc-400" />
             </a>
-            <a href="#" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all duration-300">
-              <span>📘</span>
+            <a href="#" className="w-9 h-9 bg-zinc-900 rounded-lg flex items-center justify-center hover:bg-zinc-800 transition-colors">
+              <Github className="w-4 h-4 text-zinc-400" />
             </a>
-            <a href="#" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all duration-300">
-              <span>💼</span>
+            <a href="#" className="w-9 h-9 bg-zinc-900 rounded-lg flex items-center justify-center hover:bg-zinc-800 transition-colors">
+              <Linkedin className="w-4 h-4 text-zinc-400" />
             </a>
           </div>
         </div>
-      </div>
 
-      {/* Bottom Line */}
-      <div className="text-center border-t border-white/10 mt-10 pt-6 text-gray-500 text-sm">
-        © {new Date().getFullYear()} Job Tracker. All rights reserved.
+        <div className="text-center text-zinc-600 text-sm mt-8 pt-8 border-t border-zinc-900">
+          © {new Date().getFullYear()} CareerPulse. All rights reserved.
+        </div>
       </div>
     </footer>
-    </div>
-  )
+  );
 }
 
-export default Footer
+export default Footer;

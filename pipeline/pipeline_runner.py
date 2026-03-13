@@ -373,6 +373,12 @@ def main():
         help="Force fetch all emails (ignore last fetch date)",
     )
     parser.add_argument("--login", action="store_true", help="Force new login")
+    parser.add_argument(
+        "--start-date", type=str, default=None, help="Start date (YYYY-MM-DD) for fetching emails"
+    )
+    parser.add_argument(
+        "--end-date", type=str, default=None, help="End date (YYYY-MM-DD) for fetching emails"
+    )
 
     args = parser.parse_args()
     global BACKEND_URL
@@ -409,29 +415,40 @@ def main():
 
     # Step 1: Fetch emails
     if not args.skip_fetch:
-        if token and not args.force_fetch:
+        fetch_cmd = ["python3", "fetch_emails.py"]
+        
+        # Determine date range
+        start_date = None
+        end_date = None
+        
+        if args.start_date:
+            start_date = args.start_date
+            fetch_cmd.extend(["--start-date", start_date])
+        elif token and not args.force_fetch:
             last_fetch = get_last_fetch_date(token)
             if last_fetch:
                 cutoff_date = datetime.fromisoformat(last_fetch.replace("Z", "+00:00"))
                 print(f"Last fetch: {cutoff_date.strftime('%Y-%m-%d')}")
+                start_date = cutoff_date.strftime("%Y-%m-%d")
+                fetch_cmd.extend(["--cutoff", start_date])
             else:
                 print("No previous fetch found, will fetch last 30 days")
         elif args.force_fetch:
             print("Force fetch enabled, will fetch last 30 days")
-
-        if cutoff_date:
-            cutoff_str = cutoff_date.strftime("%Y-%m-%d")
-            success, count = run(
-                ["python3", "fetch_emails.py", "--cutoff", cutoff_str],
-                stage_name="Fetch Emails",
-                details={"cutoff": cutoff_str},
-            )
-        else:
-            success, count = run(
-                ["python3", "fetch_emails.py"],
-                stage_name="Fetch Emails",
-                details={"period": "30 days"},
-            )
+        
+        if args.end_date:
+            end_date = args.end_date
+            fetch_cmd.extend(["--end-date", end_date])
+        
+        details = {}
+        if start_date:
+            details["start_date"] = start_date
+        if end_date:
+            details["end_date"] = end_date
+        if not details:
+            details["period"] = "30 days"
+        
+        success, count = run(fetch_cmd, stage_name="Fetch Emails", details=details)
         total_fetched = count
 
         if os.path.exists("my_emails.csv"):

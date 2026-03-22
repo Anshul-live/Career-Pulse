@@ -250,12 +250,11 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-black">
-      <div className="container mx-auto px-4 md:px-6 py-8 max-w-7xl">
-      <div ref={containerRef} className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-black pt-16">
+      <div ref={containerRef} className="max-w-7xl mx-auto px-4 md:px-6 py-8 space-y-6">
         
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-3xl font-bold text-zinc-100">Dashboard</h1>
             <p className="text-zinc-500 mt-1">Track your job application progress</p>
@@ -281,7 +280,7 @@ export default function Dashboard() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <StatCard
             title="Total Applications"
             value={stats?.total || emails.length}
@@ -468,7 +467,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         )}
-
       </div>
 
       {/* Delete Modal */}
@@ -496,7 +494,7 @@ export default function Dashboard() {
         </ModalContent>
       </Modal>
 
-      {/* Email Detail Modal */}
+        {/* Email Detail Modal */}
       <Modal 
         isOpen={!!selectedEmail} 
         onClose={() => setSelectedEmail(null)} 
@@ -558,7 +556,6 @@ export default function Dashboard() {
           )}
         </ModalContent>
       </Modal>
-    </div>
     </div>
   );
 }

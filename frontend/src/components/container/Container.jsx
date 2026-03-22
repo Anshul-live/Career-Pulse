@@ -55,9 +55,9 @@ const Container = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="bg-black">
       {/* Hero Section */}
-      <section className="relative flex flex-col items-center justify-center min-h-screen px-4 md:px-6">
+      <section className="relative flex flex-col items-center justify-center min-h-screen px-4 md:px-6 pt-16">
         {/* Background Effects */}
         <div className="absolute inset-0 -z-10 overflow-hidden">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 blur-[120px] rounded-full"></div>
@@ -178,19 +178,6 @@ const Container = () => {
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="py-12 px-6 border-t border-zinc-900">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
-              <Briefcase className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-zinc-400">CareerPulse</span>
-          </div>
-          <p className="text-zinc-600 text-sm">© 2026 CareerPulse. All rights reserved.</p>
-        </div>
-      </footer>
     </div>
   );
 };

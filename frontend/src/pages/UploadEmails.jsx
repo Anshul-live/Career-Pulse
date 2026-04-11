@@ -1,6 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
+import { Upload, FileJson, CheckCircle2, XCircle, ChevronLeft, Briefcase } from "lucide-react";
 
 const UploadEmails = () => {
   const [file, setFile] = useState(null);
@@ -92,106 +93,100 @@ const UploadEmails = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-10 px-4">
-      <div className="max-w-lg mx-auto bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800">
-              Upload Job Emails
-            </h2>
-            <p className="text-gray-500 text-sm mt-1">
-              Import your processed emails
-            </p>
+    <div className="min-h-screen bg-black flex items-center justify-center px-4 pt-16">
+      <div className="w-full max-w-md">
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center">
+            <Briefcase className="w-6 h-6 text-white" />
           </div>
-          <Link
-            to="/dashboard"
-            className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
-          >
-            ← Back
-          </Link>
         </div>
-
-        <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center mb-6 hover:border-blue-300 hover:bg-blue-50/30 transition-all duration-300">
-          <input
-            type="file"
-            accept=".json"
-            onChange={handleFileChange}
-            className="hidden"
-            id="file-upload"
-          />
-          <label
-            htmlFor="file-upload"
-            className="cursor-pointer flex flex-col items-center"
-          >
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mb-4">
-              <svg
-                className="w-8 h-8 text-blue-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                />
-              </svg>
+        
+        <div className="bg-zinc-900/50 backdrop-blur-xl rounded-3xl border border-zinc-800 p-8">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-zinc-100">
+                Upload Job Emails
+              </h2>
+              <p className="text-zinc-500 text-sm mt-1">
+                Import your processed emails
+              </p>
             </div>
-            {file ? (
-              <div className="text-left">
-                <p className="font-medium text-gray-800">{file.name}</p>
-                <p className="text-sm text-gray-500">Click to change file</p>
+            <Link
+              to="/dashboard"
+              className="flex items-center gap-1 text-zinc-400 hover:text-zinc-200 text-sm font-medium transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back
+            </Link>
+          </div>
+
+          <div className="border-2 border-dashed border-zinc-700 rounded-xl p-8 text-center mb-6 hover:border-zinc-600 hover:bg-zinc-800/30 transition-all duration-300">
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleFileChange}
+              className="hidden"
+              id="file-upload"
+            />
+            <label
+              htmlFor="file-upload"
+              className="cursor-pointer flex flex-col items-center"
+            >
+              <div className="w-16 h-16 bg-zinc-800 rounded-full flex items-center justify-center mb-4">
+                <FileJson className="w-8 h-8 text-blue-400" />
               </div>
-            ) : (
-              <span className="text-gray-600 font-medium">
-                Click to select JSON file
-              </span>
-            )}
-          </label>
+              {file ? (
+                <div className="text-left">
+                  <p className="font-medium text-zinc-100">{file.name}</p>
+                  <p className="text-sm text-zinc-500">Click to change file</p>
+                </div>
+              ) : (
+                <span className="text-zinc-400 font-medium">
+                  Click to select JSON file
+                </span>
+              )}
+            </label>
+          </div>
+
+          {uploading && (
+            <div className="mb-6">
+              <div className="flex justify-between text-sm text-zinc-400 mb-2">
+                <span>Uploading...</span>
+                <span>Processing</span>
+              </div>
+              <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse"></div>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 px-4 py-3 rounded-xl mb-4 flex items-center gap-2">
+              <XCircle className="w-5 h-5" />
+              {error}
+            </div>
+          )}
+
+          {result && (
+            <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-3 rounded-xl mb-4 flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5" />
+              {result.message}
+            </div>
+          )}
+
+          <button
+            onClick={handleUpload}
+            disabled={!file || uploading}
+            className={`w-full py-3 rounded-xl font-semibold text-white transition-all duration-300 flex items-center justify-center gap-2 ${
+              !file || uploading
+                ? "bg-zinc-700 cursor-not-allowed"
+                : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 shadow-lg hover:shadow-xl"
+            }`}
+          >
+            <Upload className="w-4 h-4" />
+            {uploading ? "Uploading..." : "Upload Emails"}
+          </button>
         </div>
-
-        {uploading && (
-          <div className="mb-6">
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
-              <span>Uploading...</span>
-              <span>Processing</span>
-            </div>
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full animate-pulse"></div>
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4 flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-            {error}
-          </div>
-        )}
-
-        {result && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl mb-4 flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            {result.message}
-          </div>
-        )}
-
-        <button
-          onClick={handleUpload}
-          disabled={!file || uploading}
-          className={`w-full py-3 rounded-xl font-semibold text-white transition-all duration-300 ${
-            !file || uploading
-              ? "bg-gray-300 cursor-not-allowed"
-              : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl"
-          }`}
-        >
-          {uploading ? "Uploading..." : "Upload Emails"}
-        </button>
       </div>
     </div>
   );

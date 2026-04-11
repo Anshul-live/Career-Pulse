@@ -8,37 +8,47 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "http://localhost:8000/auth/google/callback",
+      callbackURL: "http://localhost:8000/google/callback",
     },
     async (accessToken, refreshToken, profile, done) => {
+      try {
+        let user = await User.findOne({ email: profile.emails[0].value.toLowerCase() });
+        
+        if (!user) {
+          user = await User.create({
+            email: profile.emails[0].value.toLowerCase(),
+            fullName: profile.displayName,
+            password: "google",
+            googleAccessToken: accessToken,
+            googleRefreshToken: refreshToken,
+            googleTokenExpiry: new Date(Date.now() + 3600 * 1000)
+          });
+        } else {
+          user.googleAccessToken = accessToken;
+          user.googleRefreshToken = refreshToken;
+          user.googleTokenExpiry = new Date(Date.now() + 3600 * 1000);
+          await user.save();
+        }
 
-      let user = await User.findOne({ email: profile.emails[0].value });
-
-      if (!user) {
-        user = await User.create({
-          email: profile.emails[0].value,
-          fullName: profile.displayName,
-          googleAccessToken: accessToken
-        });
-      } else {
-        user.googleAccessToken = accessToken;
-        await user.save();
+        return done(null, user);
+      } catch (error) {
+        return done(error, null);
       }
-
-      return done(null, user);
     }
   )
 );
 
-
 passport.serializeUser((user, done) => {
-  done(null, user.id);
+  done(null, user._id.toString());
 });
 
 passport.deserializeUser(async (id, done) => {
-  const user = await User.findById(id);
-  done(null, user);
+  try {
+    const user = await User.findById(id);
+    done(null, user);
+  } catch (error) {
+    done(error, null);
+  }
 });
-
 
 export default passport;

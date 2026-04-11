@@ -12,7 +12,7 @@ const STATE_ORDER = {
     "unknown": 7
 };
 
-export const groupStates = ["applied", "assessment", "interview", "offer", "rejected", "closed", "unknown"];
+export const groupStates = ["applied", "assessment", "interview", "offer", "rejected", "closed", "unknown", "opportunities"];
 
 const isTerminalState = (state) => {
     return ["offer", "rejected", "closed"].includes(state);
@@ -57,6 +57,7 @@ export const processGroupsForUser = async (userId, emailIds) => {
 };
 
 const findMatchingGroup = async (userId, email) => {
+    // First try to match by application_id (most specific)
     if (email.application_id) {
         const group = await Group.findOne({
             user_id: userId,
@@ -65,19 +66,11 @@ const findMatchingGroup = async (userId, email) => {
         if (group) return group;
     }
 
+    // Then try to match by thread_id (emails in same conversation)
     if (email.thread_id) {
         const group = await Group.findOne({
             user_id: userId,
             thread_id: email.thread_id
-        });
-        if (group) return group;
-    }
-
-    if (email.company_name && email.role) {
-        const group = await Group.findOne({
-            user_id: userId,
-            company_name: email.company_name,
-            role: email.role
         });
         if (group) return group;
     }
@@ -88,8 +81,8 @@ const findMatchingGroup = async (userId, email) => {
 const createNewGroup = async (userId, email) => {
     const group = new Group({
         user_id: userId,
-        company_name: email.company_name,
-        role: email.role,
+        company_name: email.company_name || "Unknown",
+        role: email.role || "Unknown",
         application_id: email.application_id || null,
         thread_id: email.thread_id || null,
         state: email.status || "unknown",
@@ -255,7 +248,7 @@ export const updateGroupState = async (userId, groupId, newState, notes = null) 
         throw new Error("Group not found");
     }
 
-    const validStates = ["applied", "interview", "assessment", "offer", "rejected", "closed", "unknown"];
+    const validStates = ["applied", "interview", "assessment", "offer", "rejected", "closed", "unknown", "opportunities"];
     if (!validStates.includes(newState)) {
         throw new Error(`Invalid state: ${newState}`);
     }
@@ -295,8 +288,17 @@ export const getGroupsWithEmails = async (userId, options = {}) => {
     }
 
     const groups = await Group.find(filter)
-        .populate("email_ids")
         .sort({ updatedAt: -1 });
+
+    // Populate and sort timeline for each group
+    for (const group of groups) {
+        if (group.email_ids && group.email_ids.length > 0) {
+            const emails = await Email.find({
+                _id: { $in: group.email_ids }
+            }).sort({ date: 1 }); // Sort by date ascending (oldest first for timeline)
+            group.email_ids = emails;
+        }
+    }
 
     return groups;
 };

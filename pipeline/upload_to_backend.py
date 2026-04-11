@@ -9,7 +9,7 @@ DEFAULT_URL = "http://localhost:8000/gmail/upload-emails"
 
 
 def load_all_emails():
-    emails = []
+    emails_dict = {}
     
     for filename in os.listdir(INPUT_DIR):
         if not filename.endswith(".csv"):
@@ -19,13 +19,19 @@ def load_all_emails():
         df = pd.read_csv(filepath)
         
         for _, row in df.iterrows():
-            # Use final_status if available, otherwise fall back to status
+            message_id = str(row.get("message_id", ""))
+            if not message_id:
+                continue
+            
+            if message_id in emails_dict:
+                continue
+            
             final_status = row.get("final_status") if pd.notna(row.get("final_status")) else row.get("status", "unknown")
             if pd.isna(final_status):
                 final_status = "unknown"
             
             email = {
-                "message_id": str(row.get("message_id", "")),
+                "message_id": message_id,
                 "thread_id": str(row.get("thread_id", "")) if pd.notna(row.get("thread_id")) else None,
                 "date": str(row.get("date", "")) if pd.notna(row.get("date")) else None,
                 "from": str(row.get("from_email", "")) if pd.notna(row.get("from_email")) else None,
@@ -48,9 +54,9 @@ def load_all_emails():
                 "compensation": str(row.get("compensation")) if pd.notna(row.get("compensation")) else None,
                 "joining_date": str(row.get("joining_date")) if pd.notna(row.get("joining_date")) else None,
             }
-            emails.append(email)
+            emails_dict[message_id] = email
     
-    return emails
+    return list(emails_dict.values())
 
 
 def upload_to_backend(emails, url, token):

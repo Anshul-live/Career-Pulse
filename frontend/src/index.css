@@ -1,67 +1,98 @@
 @import "tailwindcss";
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@source "../src/**/*.{js,jsx}";
+
+/*
+  Safelist: dynamic classes used in JS objects (statusColors, etc.)
+  that Tailwind's static analysis can't detect.
+
+  bg-blue-500/20 border-blue-500/30 text-blue-400 bg-blue-500
+  bg-purple-500/20 border-purple-500/30 text-purple-400 bg-purple-500
+  bg-amber-500/20 border-amber-500/30 text-amber-400 bg-amber-500
+  bg-emerald-500/20 border-emerald-500/30 text-emerald-400 bg-emerald-500
+  bg-rose-500/20 border-rose-500/30 text-rose-400 bg-rose-500
+  bg-zinc-500/20 border-zinc-500/30 text-zinc-400 bg-zinc-500
+  bg-slate-500/20 border-slate-500/30 text-slate-400 bg-slate-500
+  bg-blue-500/10 bg-purple-500/10 bg-amber-500/10 bg-emerald-500/10 bg-rose-500/10
+  border-blue-500/30 border-purple-500/30 border-amber-500/30 border-emerald-500/30 border-rose-500/30
+  bg-zinc-900/50 border-zinc-800/50 bg-zinc-800/50 bg-zinc-800/30
+  bg-black/70 bg-black/80
+  backdrop-blur-sm backdrop-blur-xl
+  from-blue-500 to-purple-500 from-blue-600 to-purple-600
+  from-blue-500 to-purple-500 from-blue-400 via-purple-400 to-pink-400
+  hover:from-blue-500 hover:to-purple-500
+  bg-gradient-to-r bg-gradient-to-br bg-clip-text text-transparent
+  blur-[120px] blur-[100px]
+  group-hover:scale-150 group-hover:translate-x-1
+  hover:-translate-y-1
+*/
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: black;
+    color: #fafafa;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.5;
+  }
+
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  main {
+    flex: 1;
+  }
+
+  section {
+    width: 100%;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #09090b;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #27272a;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3f3f46;
+  }
+
+  ::selection {
+    background: #27272a;
+    color: #fafafa;
+  }
 }
 
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  background-color: black;
-  color: #fafafa;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  line-height: 1.5;
-}
-
-#root {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-main {
-  flex: 1;
-}
-
-section {
-  width: 100%;
-}
-
-.container {
-  max-width: 1280px;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 1.5rem;
-  padding-right: 1.5rem;
-}
-
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #09090b;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #27272a;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
-}
-
-::selection {
-  background: #27272a;
-  color: #fafafa;
+@layer components {
+  .container {
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
 }

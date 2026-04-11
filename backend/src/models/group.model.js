@@ -3,7 +3,7 @@ import mongoose, {Schema} from "mongoose";
 const timelineEntrySchema = new Schema({
     status: {
         type: String,
-        enum: ["applied", "interview", "assessment", "offer", "rejected", "closed"],
+        enum: ["applied", "interview", "assessment", "offer", "rejected", "closed", "unknown"],
         required: true
     },
     date: {

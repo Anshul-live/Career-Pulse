@@ -7,3 +7,5 @@ lxml
 joblib
 google-api-python-client
 google-auth-oauthlib
+pymongo
+bcrypt

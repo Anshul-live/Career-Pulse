@@ -33,12 +33,12 @@ const emailSchema = new Schema(
         },
         status: {
             type: String,
-            enum: ["applied", "interview", "assessment", "offer", "rejected", "closed", "unknown"],
+            enum: ["applied", "interview", "assessment", "offer", "rejected", "closed", "unknown", "opportunities"],
             default: "unknown"
         },
         original_status: {
             type: String,
-            enum: ["applied", "interview", "assessment", "offer", "rejected", "closed", "unknown"],
+            enum: ["applied", "interview", "assessment", "offer", "rejected", "closed", "unknown", "opportunities"],
             default: null
         },
         status_reason: {
@@ -71,6 +71,10 @@ const emailSchema = new Schema(
             type: Schema.Types.ObjectId,
             ref: "Group",
             default: null
+        },
+        resolved: {
+            type: Boolean,
+            default: false
         },
         interview_datetime: {
             type: Date,

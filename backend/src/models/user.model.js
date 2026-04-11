@@ -21,14 +21,29 @@ const userSchema = new Schema(
         
         password: {
             type: String,
+            required: false
+        },
+        authProvider: {
+            type: String,
             enum: ["local", "google"],
             default: "local"
-            //required: [true, 'Password is required']
         },
         refreshToken: {
             type: String
         },
         lastFetchDate: {
+            type: Date,
+            default: null
+        },
+        googleAccessToken: {
+            type: String,
+            default: null
+        },
+        googleRefreshToken: {
+            type: String,
+            default: null
+        },
+        googleTokenExpiry: {
             type: Date,
             default: null
         }

@@ -7,7 +7,7 @@ Automatic job application tracking system that processes Gmail emails through a 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌────────────┐     ┌─────────────┐
 │   Gmail     │────▶│   Pipeline   │────▶│   Backend  │────▶│  Frontend   │
-│     API     │     │  (Python)    │     │ (Express)  │     │   (React)   │
+│     API     │     │  (Python)   │     │ (Express)  │     │   (React)   │
 └─────────────┘     └──────────────┘     └────────────┘     └─────────────┘
                            │                     │
                            │                     ▼
@@ -17,13 +17,13 @@ Automatic job application tracking system that processes Gmail emails through a 
                      └───────────┘
 ```
 
-### Pipeline Flow
+### Pipeline Flow (sync_user.py)
 
-1. **Fetch** - Gmail API fetches emails (last 30 days)
+1. **Fetch** - Gmail API fetches emails for authenticated user
 2. **Type Classify** - ML model (TF-IDF + Logistic Regression) filters job-related emails
 3. **Stage Classify** - TF-IDF cosine similarity classifies status (applied, interview, etc.)
 4. **Extract** - Ollama LLM extracts structured data (company, role, interview time, etc.)
-5. **Upload** - POST to Express API → MongoDB
+5. **Upload** - Direct MongoDB upsert
 
 ## Prerequisites
 
@@ -40,10 +40,10 @@ career-pulse/
 ├── backend/           # Express.js API server
 ├── frontend/          # React + Vite dashboard
 ├── pipeline/          # Python ML/LLM processing
-└── careerpulse.py     # Unified startup script
+└── careerpulse.py    # Unified startup script
 ```
 
-## Quick Start (Demo Mode)
+## Quick Start
 
 Run everything with one command:
 
@@ -62,7 +62,7 @@ python3 careerpulse.py --pipeline --skip-fetch --upload
 ```
 
 **careerpulse.py** automatically:
-- Starts MongoDB (if not running)
+- Starts MongoDB (if not running via brew services)
 - Checks Ollama status
 - Starts Backend on http://localhost:8000
 - Starts Frontend on http://localhost:5173
@@ -104,8 +104,7 @@ cd backend
 # Install dependencies
 npm install
 
-# Create .env file
-cp .env.example .env
+# Create .env file with required variables
 ```
 
 Edit `.env` with your values:
@@ -113,12 +112,15 @@ Edit `.env` with your values:
 ```env
 # Required
 PORT=8000
-MONGO_URI=mongodb://localhost:27017/careerpulse
+MONGODB_URI=mongodb://localhost:27017
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 ACCESS_TOKEN_SECRET=your_jwt_secret_key
 
-# Optional (for production)
+# Optional
+ACCESS_TOKEN_EXPIRY=1d
+REFRESH_TOKEN_SECRET=your_refresh_secret
+REFRESH_TOKEN_EXPIRY=7d
 CORS_ORIGIN=http://localhost:5173
 ```
 
@@ -151,9 +153,6 @@ Frontend runs at `http://localhost:5173`
 cd pipeline
 
 # Install Python dependencies
-pip install pandas scikit-learn aiohttp beautifulsoup4 requests
-
-# Or use requirements.txt (create one)
 pip install -r requirements.txt
 ```
 
@@ -173,25 +172,28 @@ ollama pull llama3.1:8b
 
 ## Running the Pipeline
 
-### Full Pipeline (with upload)
+### Sync User Emails (via Backend)
+
+The recommended way to sync emails is through the frontend dashboard or via API:
+
+```bash
+# Sync for specific user (via sync_user.py directly)
+cd pipeline
+python3 sync_user.py <user_mongodb_id> [--start-date YYYY-MM-DD] [--end-date YYYY-MM-DD]
+```
+
+### Manual Pipeline (pipeline_runner.py)
 
 ```bash
 cd pipeline
 python3 pipeline_runner.py --upload
 ```
 
-This will:
-1. Fetch emails from Gmail
-2. Classify job-related emails
-3. Classify by status
-4. Extract structured data with LLM
-5. Upload to backend
-
 ### Individual Stages
 
 ```bash
-# 1. Fetch emails
-python3 fetch_emails.py
+# 1. Fetch emails (requires user tokens in MongoDB)
+python3 fetch_emails.py <user_id>
 
 # 2. Classify job vs non-job
 python3 type_classifier.py
@@ -222,35 +224,66 @@ Options:
   --backend URL     Backend URL (default: http://localhost:8000)
   --force-fetch     Force fetch all emails (ignore last fetch date)
   --login           Force new Google OAuth login
+  --start-date      Start date for email fetch (YYYY-MM-DD)
+  --end-date        End date for email fetch (YYYY-MM-DD)
 ```
 
 ---
 
 ## API Endpoints
 
+### Authentication
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/auth/google` | Google OAuth login |
 | GET | `/auth/google/callback` | OAuth callback |
-| POST | `/gmail/upload-emails` | Upload processed emails |
+| POST | `/users/register` | Register new user |
+| POST | `/users/login` | Login user |
+| POST | `/users/logout` | Logout user |
+| GET | `/users/me` | Get current user |
+
+### Gmail/Emails
+| Method | Endpoint | Description |
+|--------|----------|-------------|
 | GET | `/gmail/emails` | Get all emails with stats |
 | PUT | `/gmail/emails/:emailId/status` | Update email status |
-| POST | `/gmail/emails/refresh` | Auto-refresh statuses |
+| POST | `/gmail/emails/refresh` | Refresh/auto-close statuses |
+| POST | `/gmail/upload-emails` | Upload processed emails |
 | DELETE | `/gmail/emails/all` | Delete all emails |
+| DELETE | `/gmail/emails/:emailId` | Delete single email |
+| GET | `/gmail/status` | Check Gmail connection status |
+| POST | `/gmail/sync` | Sync emails from Gmail (spawns pipeline) |
+| POST | `/gmail/reprocess` | Re-process and group emails |
+| GET | `/gmail/last-fetch` | Get last fetch date |
+| POST | `/gmail/last-fetch` | Update last fetch date |
+
+### Groups
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/groups` | Get all application groups |
+| GET | `/groups/:groupId` | Get single group with emails |
+| PUT | `/groups/:groupId/state` | Update group status |
+| POST | `/groups/merge` | Merge multiple groups |
+| POST | `/groups/:groupId/split` | Split group emails |
+| PUT | `/groups/:groupId/notes` | Add notes to group |
+| DELETE | `/groups/:groupId` | Delete a group |
 
 ---
 
 ## Email Statuses
 
-| Status | Description |
-|--------|-------------|
-| `applied` | Application submitted |
-| `interview` | Interview scheduled |
-| `assessment` | Coding test/assessment |
-| `offer` | Job offer received |
-| `rejected` | Application rejected |
-| `closed` | Manually or auto-closed |
-| `unknown` | Unclassified |
+| Status | Description | Dashboard Fields |
+|--------|-------------|------------------|
+| `opportunities` | Job alerts/hiring notifications | - |
+| `applied` | Application submitted | Platform, Application ID, Location |
+| `interview` | Interview scheduled | Date/Time, Mode, Location, Duration, Meeting Link |
+| `assessment` | Coding test/assessment | Deadline, Duration, Test Link |
+| `offer` | Job offer received | Compensation, Joining Date, Deadline |
+| `rejected` | Application rejected | - |
+| `closed` | Manually or auto-closed | - |
+| `unknown` | Unclassified | - |
+
+The dashboard displays status badges with icons and relevant fields based on email type. Unknown emails can be resolved via the "Resolve" page in the navbar.
 
 ---
 
@@ -260,6 +293,63 @@ The backend automatically closes statuses based on:
 - **Assessment**: 2 hours after deadline (or 7 days if no deadline)
 - **Interview**: 2 hours after interview time (or 7 days if no time)
 - **Offer**: When deadline passes
+- **Opportunities**: 3 days after deadline (or 3 days if no deadline)
+
+---
+
+## Dashboard Features
+
+### List View
+- Shows recent applications sorted by date
+- Status badges with icons (applied, interview, assessment, offer, rejected, closed)
+- Relevant fields displayed based on email type
+- Click to expand details or edit
+
+### Timeline View
+- Groups emails by application into timelines
+- Shows chronological progression through application stages
+- Status badges and relevant fields per email
+- Edit status directly from timeline
+
+### Groups View
+- Grid view of all applications grouped by company
+- Filter by status
+- Click to view full timeline with all related emails
+
+### Resolve Unknowns Page
+- Manually classify emails marked as "unknown"
+- Extract company/role from email subject automatically
+- Set status (applied, interview, assessment, offer, rejected)
+- View email body to make informed decisions
+- Badge count in navbar updates automatically when resolved
+
+---
+
+## Data Models
+
+### Email Schema
+- `user_id`: Reference to User
+- `message_id`: Gmail message ID (unique)
+- `thread_id`: Gmail thread ID
+- `date`: Email date
+- `from`: Sender
+- `status`: Current status (applied, interview, etc.)
+- `company_name`, `role`: Extracted job details
+- `application_id`: Job application reference
+- `interview_datetime`, `meeting_link`: Interview details
+- `deadline_datetime`, `test_link`: Assessment details
+- `compensation`, `joining_date`: Offer details
+- `group_id`: Reference to Group
+
+### Group Schema
+- `user_id`: Reference to User
+- `company_name`, `role`: Application details
+- `application_id`, `thread_id`: For grouping
+- `state`: Current state (from statuses)
+- `timeline`: Array of status changes
+- `email_ids`: References to Emails
+- `is_merged`, `merged_from`: Merge tracking
+- `notes`: User notes
 
 ---
 
@@ -272,7 +362,7 @@ cd pipeline
 python3 train_type_classifier.py
 ```
 
-This will create a new `job_email_classifier.joblib` file.
+This will create a new `job_email_classifier.joblib` file using `corpus.csv`.
 
 ---
 
@@ -283,8 +373,8 @@ This will create a new `job_email_classifier.joblib` file.
 - Check Gmail API is enabled in Google Cloud Console
 
 ### MongoDB Connection
-- Verify MongoDB is running
-- Check MONGO_URI in backend/.env
+- Verify MongoDB is running: `brew services list | grep mongodb`
+- Check `MONGODB_URI` in backend/.env
 
 ### Ollama Errors
 - Ensure Ollama is running: `ollama serve`
@@ -298,7 +388,7 @@ This will create a new `job_email_classifier.joblib` file.
 
 ## Tech Stack
 
-- **Frontend:** React 19, Vite, Tailwind CSS 4, React Router
-- **Backend:** Express.js, MongoDB, Passport.js (Google OAuth), JWT
+- **Frontend:** React 19, Vite, Tailwind CSS 4, React Router, Recharts
+- **Backend:** Express.js 5, MongoDB/Mongoose, Passport.js (Google OAuth), JWT
 - **ML Pipeline:** scikit-learn (TF-IDF), Ollama (llama3.1:8b)
 - **Gmail API:** Google APIs Client Library for Python

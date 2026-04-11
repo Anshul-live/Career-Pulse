@@ -45,6 +45,9 @@ app.use("/gmail", gmailRoutes);
 import groupRoutes from "./routes/group.routes.js";
 app.use("/groups", groupRoutes);
 
+app.get("/", (req, res) => {
+  res.json({ status: "ok", message: "CareerPulse API is running" });
+});
 
 app.use((err, req, res, next) => {
     console.log(" ERROR CAUGHT:", err.message);

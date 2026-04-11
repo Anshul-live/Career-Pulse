@@ -141,6 +141,17 @@ def run_pipeline(skip_fetch=False, upload=False, start_date=None, end_date=None)
     result = subprocess.run(cmd, cwd=PIPELINE_DIR)
     return result.returncode == 0
 
+def setup_demo(reset=False):
+    """Setup demo data."""
+    print("\nSetting up Demo Mode...")
+    
+    cmd = [sys.executable, "demo-setup.py"]
+    if reset:
+        cmd.append("--reset")
+    
+    result = subprocess.run(cmd, cwd=PROJECT_ROOT)
+    return result.returncode == 0
+
 def check_ollama():
     """Check if Ollama is running."""
     try:
@@ -194,6 +205,8 @@ def main():
     parser.add_argument("--stop", action="store_true", help="Stop all services")
     parser.add_argument("--start-date", type=str, help="Start date (YYYY-MM-DD) for email fetch")
     parser.add_argument("--end-date", type=str, help="End date (YYYY-MM-DD) for email fetch")
+    parser.add_argument("--demo", action="store_true", help="Demo mode: setup sample data and start")
+    parser.add_argument("--reset-demo", action="store_true", help="Reset demo data before starting")
     
     args = parser.parse_args()
     
@@ -216,13 +229,22 @@ def main():
     
     # Start services
     start_mongodb()
-    check_ollama()
+    
+    # Demo mode
+    if args.demo:
+        print("\n" + "="*50)
+        print("DEMO MODE")
+        print("="*50)
+        setup_demo(reset=args.reset_demo)
+    else:
+        check_ollama()
+    
     start_backend()
     start_frontend()
     print_status()
     
-    # Run pipeline if requested
-    if args.pipeline:
+    # Run pipeline if requested (not in demo mode)
+    if args.pipeline and not args.demo:
         print("\n" + "="*50)
         print("Running Pipeline")
         print("="*50)

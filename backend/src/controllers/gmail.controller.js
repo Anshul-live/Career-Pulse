@@ -1,37 +1,29 @@
-import { fetchJobEmails } from "../services/gmail.service.js";
-import { classifyEmail } from "../utils/emailClassifier.js";
-import { google } from "googleapis";
 import { Email } from "../models/email.model.js";
 import { User } from "../models/user.model.js";
 import { updateEmailStatuses, getFilteredStats } from "../utils/emailStatusManager.js";
-import { processGroupsForUser, deleteGroupsForUser } from "../services/group.service.js";
+import { processGroupsForUser, deleteGroupsForUser, getGroupsWithEmails } from "../services/group.service.js";
+import { spawn } from "child_process";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const getJobEmailStats = async (req, res) => {
-    console.log("REQ.USER 👉", req.user);
-
-    const accessToken = req.user.googleAccessToken;
-
-    const messages = await fetchJobEmails(accessToken);
-
-    let stats = {
-        Applied: 0,
-        "Offer Received": 0,
-        Rescheduled: 0,
-        Rejected: 0,
-    };
-
-    for (let msg of messages) {
-        const category = classifyEmail(msg.snippet || "");
-
-        if (stats[category] !== undefined) {
-            stats[category]++;
-        }
+    try {
+        const userId = req.user._id;
+        const stats = await getFilteredStats(userId, true);
+        res.json({
+            success: true,
+            stats
+        });
+    } catch (error) {
+        console.error("Error getting stats:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message || "Failed to get stats"
+        });
     }
-
-    res.json({
-        success: true,
-        stats
-    });
 };
 
 export const uploadEmails = async (req, res) => {
@@ -89,7 +81,6 @@ export const uploadEmails = async (req, res) => {
         }));
 
         const result = await Email.bulkWrite(emailOperations);
-
         await updateEmailStatuses(userId);
 
         const insertedIds = result.insertedIds ? Object.values(result.insertedIds) : [];
@@ -139,8 +130,6 @@ export const getEmails = async (req, res) => {
         }
 
         const emails = await Email.find(filter).sort({ createdAt: -1 });
-
-        // Always include closed count in stats
         const stats = await getFilteredStats(userId, true);
 
         res.json({
@@ -161,11 +150,11 @@ export const updateEmailStatus = async (req, res) => {
     try {
         const userId = req.user._id;
         const { emailId } = req.params;
-        const { status, notes } = req.body;
+        const { status, notes, company_name, role } = req.body;
 
-        const validStatuses = ["applied", "interview", "assessment", "offer", "rejected", "closed", "unknown"];
+        const validStatuses = ["applied", "interview", "assessment", "offer", "rejected", "closed", "unknown", "opportunities"];
         
-        if (!validStatuses.includes(status)) {
+        if (status && !validStatuses.includes(status)) {
             return res.status(400).json({
                 success: false,
                 message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`
@@ -181,22 +170,40 @@ export const updateEmailStatus = async (req, res) => {
             });
         }
 
-        const originalStatus = email.status;
-        email.status = status;
-        
-        if (status === "closed" && originalStatus !== "closed") {
-            email.original_status = originalStatus;
-            email.status_reason = notes || "manually closed";
+        if (status) {
+            const originalStatus = email.status;
+            email.status = status;
+            
+            if (status === "closed" && originalStatus !== "closed") {
+                email.original_status = originalStatus;
+                email.status_reason = notes || "manually closed";
+            }
+        }
+
+        if (company_name !== undefined) email.company_name = company_name;
+        if (role !== undefined) email.role = role;
+
+        // Mark as resolved if company_name and role are both set
+        if (email.company_name && email.role) {
+            email.resolved = true;
         }
 
         await email.save();
+        await updateEmailStatuses(userId);
+
+        // If resolved, add to group
+        if (email.resolved) {
+            await processGroupsForUser(userId, [email._id]);
+        }
 
         res.json({
             success: true,
-            message: "Email status updated",
+            message: "Email updated",
             email: {
                 _id: email._id,
                 status: email.status,
+                company_name: email.company_name,
+                role: email.role,
                 original_status: email.original_status,
                 status_reason: email.status_reason
             }
@@ -277,11 +284,15 @@ export const deleteAllEmails = async (req, res) => {
         const emailResult = await Email.deleteMany({ user_id: userId });
         const groupResult = await deleteGroupsForUser(userId);
 
+        // Return fresh stats after delete
+        const stats = await getFilteredStats(userId, true);
+
         res.json({
             success: true,
             message: "All emails and groups deleted",
             deletedEmails: emailResult.deletedCount,
-            deletedGroups: groupResult
+            deletedGroups: groupResult,
+            stats
         });
     } catch (error) {
         console.error("Error deleting emails:", error);
@@ -332,6 +343,193 @@ export const deleteEmail = async (req, res) => {
         res.status(500).json({
             success: false,
             message: error.message || "Failed to delete email"
+        });
+    }
+};
+
+export const syncEmails = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { startDate, endDate } = req.body;
+        console.log(`[Sync] Triggering pipeline for user: ${userId}`);
+        if (startDate) console.log(`[Sync] Start date: ${startDate}`);
+        if (endDate) console.log(`[Sync] End date: ${endDate}`);
+
+        const pipelineDir = path.join(__dirname, "../../../pipeline");
+        const scriptPath = path.join(pipelineDir, "sync_user.py");
+
+        const spawnArgs = [scriptPath, String(userId)];
+        if (startDate) {
+            spawnArgs.push("--start-date", startDate);
+        }
+        if (endDate) {
+            spawnArgs.push("--end-date", endDate);
+        }
+
+        const pipelineProcess = spawn("python3", ["-u", ...spawnArgs], {
+            cwd: pipelineDir
+        });
+
+        let pipelineOutput = "";
+        let pipelineError = "";
+
+        // Pass stdio: 'inherit' to show output directly in terminal
+        pipelineProcess.stdout.on("data", (data) => {
+            const msg = data.toString();
+            pipelineOutput += msg;
+            process.stdout.write(msg);
+        });
+
+        pipelineProcess.stderr.on("data", (data) => {
+            const msg = data.toString();
+            pipelineError += msg;
+            process.stderr.write(msg);
+        });
+
+        pipelineProcess.on("close", async (code) => {
+            console.log(`[Sync] Pipeline finished with code: ${code}`);
+            
+            if (code !== 0) {
+                return res.status(500).json({
+                    success: false,
+                    message: "Pipeline processing failed",
+                    error: pipelineError
+                });
+            }
+
+            await User.findByIdAndUpdate(userId, { lastFetchDate: new Date() });
+            await updateEmailStatuses(userId);
+
+            res.json({
+                success: true,
+                message: "Sync completed successfully",
+                output: pipelineOutput
+            });
+        });
+
+        pipelineProcess.on("error", (error) => {
+            console.error("[Sync] Failed to start pipeline:", error);
+            res.status(500).json({
+                success: false,
+                message: "Failed to start pipeline"
+            });
+        });
+
+    } catch (error) {
+        console.error("[Sync] Error:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message || "Sync failed"
+        });
+    }
+};
+
+export const getGroups = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { status, include_closed } = req.query;
+
+        const groups = await getGroupsWithEmails(userId, { status, include_closed });
+
+        res.json({
+            success: true,
+            groups
+        });
+    } catch (error) {
+        console.error("Error fetching groups:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message || "Failed to fetch groups"
+        });
+    }
+};
+
+export const reprocessEmails = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        console.log(`[Reprocess] Processing all emails for user: ${userId}`);
+
+        const { Email } = await import("../models/email.model.js");
+        const { Group } = await import("../models/group.model.js");
+        
+        await Group.deleteMany({ user_id: userId });
+        await Email.updateMany({ user_id: userId }, { group_id: null });
+        
+        const allEmails = await Email.find({ user_id: userId });
+        console.log(`[Reprocess] Found ${allEmails.length} emails to process`);
+
+        let grouped = 0;
+
+        for (const email of allEmails) {
+            let existingGroup = null;
+            const orConditions = [];
+            
+            if (email.application_id) {
+                orConditions.push({ application_id: email.application_id });
+            }
+            if (email.thread_id) {
+                orConditions.push({ thread_id: email.thread_id });
+            }
+            
+            if (orConditions.length > 0) {
+                existingGroup = await Group.findOne({
+                    user_id: userId,
+                    $or: orConditions
+                });
+            }
+
+            if (existingGroup) {
+                if (!existingGroup.email_ids.includes(email._id)) {
+                    existingGroup.email_ids.push(email._id);
+                    if (email.company_name && !existingGroup.company_name) {
+                        existingGroup.company_name = email.company_name;
+                    }
+                    if (email.role && !existingGroup.role) {
+                        existingGroup.role = email.role;
+                    }
+                    await existingGroup.save();
+                }
+                email.group_id = existingGroup._id;
+                await email.save();
+                grouped++;
+            } else {
+                const newGroup = new Group({
+                    user_id: userId,
+                    company_name: email.company_name || "Unknown",
+                    role: email.role || "Unknown",
+                    application_id: email.application_id || null,
+                    thread_id: email.thread_id || null,
+                    state: email.status || "unknown",
+                    timeline: [{
+                        status: email.status || "unknown",
+                        date: email.date || new Date(),
+                        from_email_id: email._id,
+                        triggered_by: "system"
+                    }],
+                    email_ids: [email._id]
+                });
+                await newGroup.save();
+                email.group_id = newGroup._id;
+                await email.save();
+                grouped++;
+            }
+        }
+
+        console.log(`[Reprocess] Done: ${grouped} emails grouped`);
+
+        const groups = await getGroupsWithEmails(userId, { include_closed: true });
+
+        res.json({
+            success: true,
+            message: `Processed ${allEmails.length} emails: ${grouped} groups created`,
+            grouped,
+            groups
+        });
+    } catch (error) {
+        console.error("Error reprocessing emails:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message || "Failed to reprocess emails"
         });
     }
 };

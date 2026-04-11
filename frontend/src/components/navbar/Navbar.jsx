@@ -1,16 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import axios from "axios";
 import { 
   Briefcase, 
   Layers, 
   Home, 
   LogOut, 
-  User,
   Menu,
   X,
-  ChevronDown,
-  Settings,
+  AlertCircle,
   LogIn
 } from "lucide-react";
 
@@ -18,6 +17,32 @@ export default function Navbar() {
   const navigate = useNavigate(); 
   const { isLoggedIn } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [unknownCount, setUnknownCount] = useState(0);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchUnknownCount();
+    }
+    
+    const handleEmailResolved = () => {
+      fetchUnknownCount();
+    };
+    
+    window.addEventListener("email-resolved", handleEmailResolved);
+    return () => window.removeEventListener("email-resolved", handleEmailResolved);
+  }, [isLoggedIn]);
+
+  const fetchUnknownCount = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get("http://localhost:8000/gmail/emails?status=unknown", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setUnknownCount(res.data.emails?.length || 0);
+    } catch (error) {
+      console.error("Error fetching unknown count:", error);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -62,6 +87,24 @@ export default function Navbar() {
                 {item.label}
               </NavLink>
             ))}
+            {isLoggedIn && unknownCount > 0 && (
+              <NavLink
+                to="/resolve"
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    isActive
+                      ? "bg-amber-500/20 text-amber-400"
+                      : "text-amber-400 hover:bg-amber-500/10"
+                  }`
+                }
+              >
+                <AlertCircle className="w-4 h-4" />
+                Resolve
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-500/30 text-xs">
+                  {unknownCount}
+                </span>
+              </NavLink>
+            )}
           </div>
 
           {/* Right side */}
@@ -114,6 +157,22 @@ export default function Navbar() {
                 {item.label}
               </NavLink>
             ))}
+            {isLoggedIn && unknownCount > 0 && (
+              <NavLink
+                to="/resolve"
+                onClick={() => setMobileMenuOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                    isActive
+                      ? "bg-amber-500/20 text-amber-400"
+                      : "text-amber-400 hover:bg-amber-500/10"
+                  }`
+                }
+              >
+                <AlertCircle className="w-4 h-4" />
+                Resolve ({unknownCount})
+              </NavLink>
+            )}
           </div>
         )}
       </div>

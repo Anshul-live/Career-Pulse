@@ -13,9 +13,8 @@ echo ""
 echo "Installing backend dependencies..."
 cd backend
 if [ ! -f ".env" ]; then
-    cp .env.example .env 2>/dev/null || true
+    cp .env.example .env
     echo "  Created backend/.env from .env.example"
-    echo "  ⚠️  Please fill in your credentials in backend/.env"
 fi
 npm install
 cd ..

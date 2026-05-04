@@ -25,7 +25,8 @@ const shouldUpdateState = (currentState, newState) => {
     const currentOrder = STATE_ORDER[currentState] || 7;
     const newOrder = STATE_ORDER[newState] || 7;
     
-    return newOrder < currentOrder;
+    // Advance to later stages (higher order = further in pipeline)
+    return newOrder > currentOrder;
 };
 
 export const processGroupsForUser = async (userId, emailIds) => {
@@ -72,6 +73,19 @@ const findMatchingGroup = async (userId, email) => {
             user_id: userId,
             thread_id: email.thread_id
         });
+        if (group) return group;
+    }
+
+    // Fallback: match by company_name + role (same application journey)
+    if (email.company_name && email.company_name !== "Unknown") {
+        const filter = {
+            user_id: userId,
+            company_name: email.company_name
+        };
+        if (email.role && email.role !== "Unknown") {
+            filter.role = email.role;
+        }
+        const group = await Group.findOne(filter);
         if (group) return group;
     }
 
@@ -264,11 +278,6 @@ export const updateGroupState = async (userId, groupId, newState, notes = null) 
     });
 
     await group.save();
-
-    await Email.updateMany(
-        { _id: {$in: group.email_ids} },
-        { status: newState }
-    );
 
     return group;
 };

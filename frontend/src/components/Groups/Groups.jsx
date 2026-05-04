@@ -277,13 +277,14 @@ export default function Groups() {
           </button>
           {STATUS_ORDER.filter((s) => stats?.[s] > 0).map((state) => {
             const colors = statusColors[state];
+            const icon = statusIcons[state];
             return (
               <button
                 key={state}
                 onClick={() => fetchGroups(state)}
                 className={cn("px-4 py-2 rounded-full text-sm font-medium transition-colors", selectedStatus === state ? `${colors.bg} ${colors.text}` : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800")}
               >
-                {stats?.[state] || 0}
+                <span className="flex items-center gap-2">{icon}{state.charAt(0).toUpperCase() + state.slice(1)} ({stats?.[state] || 0})</span>
               </button>
             );
           })}

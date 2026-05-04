@@ -258,30 +258,44 @@ export default function Dashboard() {
   const sortedEmails = [...emails].sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const getWeeklyData = () => {
+    if (!emails.length) return [];
+    
+    // Find the date range from actual email data
+    const dates = emails.map(e => new Date(e.date)).filter(d => !isNaN(d));
+    if (!dates.length) return [];
+    
+    const minDate = new Date(Math.min(...dates));
+    const maxDate = new Date(Math.max(...dates));
+    
+    // Show up to 14 days, starting from earliest email
     const days = {};
-    const now = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      const key = date.toLocaleDateString("en-US", { weekday: "short" });
-      days[key] = { applied: 0 };
+    const dayCount = Math.min(Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1, 14);
+    
+    for (let i = 0; i < dayCount; i++) {
+      const date = new Date(minDate);
+      date.setDate(date.getDate() + i);
+      const key = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      days[key] = { applied: 0, assessment: 0, interview: 0, offer: 0, rejected: 0 };
     }
+    
     emails.forEach(email => {
       const date = new Date(email.date);
-      const diff = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-      if (diff >= 0 && diff <= 6) {
-        const key = date.toLocaleDateString("en-US", { weekday: "short" });
-        if (days[key]) days[key].applied++;
+      if (isNaN(date)) return;
+      const key = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const status = email.original_status || email.status;
+      if (days[key] && days[key][status] !== undefined) {
+        days[key][status]++;
       }
     });
+    
     return Object.entries(days).map(([day, data]) => ({ day, ...data }));
   };
 
   const getPieData = () => {
-    if (!stats) return [];
+    if (!stats?.groupsByState) return [];
     return STATUS_ORDER.map(status => ({
       name: status.charAt(0).toUpperCase() + status.slice(1),
-      value: stats[status] || 0,
+      value: stats.groupsByState[status] || 0,
       color: statusColors[status]?.hex || "#71717a"
     })).filter(s => s.value > 0);
   };
@@ -347,10 +361,10 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <StatCard title="Total" value={stats?.total || emails.length} icon={Mail} color="text-blue-400" bg="bg-blue-500/20" />
+          <StatCard title="Applications" value={stats?.totalGroups || 0} icon={Mail} color="text-blue-400" bg="bg-blue-500/20" />
           <StatCard title="Active" value={activeCount} icon={TrendingUp} color="text-purple-400" bg="bg-purple-500/20" />
-          <StatCard title="Interviews" value={stats?.interview || 0} icon={CalendarDays} color="text-amber-400" bg="bg-amber-500/20" />
-          <StatCard title="Offers" value={stats?.offer || 0} icon={CheckCircle2} color="text-emerald-400" bg="bg-emerald-500/20" />
+          <StatCard title="Interviews" value={stats?.groupsByState?.interview || 0} icon={CalendarDays} color="text-amber-400" bg="bg-amber-500/20" />
+          <StatCard title="Offers" value={stats?.groupsByState?.offer || 0} icon={CheckCircle2} color="text-emerald-400" bg="bg-emerald-500/20" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -364,12 +378,24 @@ export default function Dashboard() {
                       <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.3}/>
                       <stop offset="95%" stopColor="#60a5fa" stopOpacity={0}/>
                     </linearGradient>
+                    <linearGradient id="colorInterview" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#c084fc" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#c084fc" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorAssessment" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#fbbf24" stopOpacity={0}/>
+                    </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
                   <XAxis dataKey="day" stroke="#71717a" fontSize={12} />
-                  <YAxis stroke="#71717a" fontSize={12} />
+                  <YAxis stroke="#71717a" fontSize={12} allowDecimals={false} />
                   <Tooltip contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: "8px" }} />
-                  <Area type="monotone" dataKey="applied" stroke="#60a5fa" fill="url(#colorApplied)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="applied" name="Applied" stroke="#60a5fa" fill="url(#colorApplied)" strokeWidth={2} stackId="1" />
+                  <Area type="monotone" dataKey="assessment" name="Assessment" stroke="#fbbf24" fill="url(#colorAssessment)" strokeWidth={2} stackId="1" />
+                  <Area type="monotone" dataKey="interview" name="Interview" stroke="#c084fc" fill="url(#colorInterview)" strokeWidth={2} stackId="1" />
+                  <Area type="monotone" dataKey="offer" name="Offer" stroke="#34d399" fill="none" strokeWidth={2} />
+                  <Area type="monotone" dataKey="rejected" name="Rejected" stroke="#fb7185" fill="none" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>

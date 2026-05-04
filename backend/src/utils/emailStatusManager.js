@@ -150,33 +150,80 @@ export const updateEmailStatuses = async (userId) => {
     }
 
     console.log("Status update results:", results);
+
+    // Sync group states: set each group's state to the highest non-closed status among its emails
+    if (results.total > 0) {
+        const { Group } = await import("../models/group.model.js");
+        const STATE_PRIORITY = { "offer": 5, "interview": 4, "assessment": 3, "applied": 2, "rejected": 1, "unknown": 0 };
+        
+        const groups = await Group.find({ user_id: userId });
+        for (const group of groups) {
+            if (!group.email_ids || group.email_ids.length === 0) continue;
+            
+            const groupEmails = await Email.find({ _id: { $in: group.email_ids } });
+            
+            // Find the best status: prefer non-closed statuses, use original_status for closed ones
+            let bestStatus = "unknown";
+            let bestPriority = -1;
+            
+            for (const email of groupEmails) {
+                // For closed emails, use original_status to determine what stage it was
+                const effectiveStatus = email.status === "closed" ? (email.original_status || "closed") : email.status;
+                const priority = STATE_PRIORITY[effectiveStatus] ?? -1;
+                if (priority > bestPriority) {
+                    bestPriority = priority;
+                    bestStatus = effectiveStatus;
+                }
+            }
+            
+            // If all emails are closed and best was rejected/offer, keep that as group state
+            // Otherwise if best is assessment/interview that got auto-closed, keep the original status
+            if (bestStatus !== group.state) {
+                group.state = bestStatus;
+                await group.save();
+            }
+        }
+    }
+
     return results;
 };
 
 export const getFilteredStats = async (userId, includeClosed = false) => {
-    const baseFilter = { user_id: userId, job_related: true };
+    const baseFilter = { user_id: userId };
     
-    const stats = {
-        total: await Email.countDocuments({ ...baseFilter, status: { $ne: "closed" } }),
+    // Email-level stats
+    const emailStats = {
+        totalEmails: await Email.countDocuments(baseFilter),
         applied: await Email.countDocuments({ ...baseFilter, status: "applied" }),
         interview: await Email.countDocuments({ ...baseFilter, status: "interview" }),
         assessment: await Email.countDocuments({ ...baseFilter, status: "assessment" }),
         offer: await Email.countDocuments({ ...baseFilter, status: "offer" }),
         rejected: await Email.countDocuments({ ...baseFilter, status: "rejected" }),
         opportunities: await Email.countDocuments({ ...baseFilter, status: "opportunities" }),
+        closed: await Email.countDocuments({ ...baseFilter, status: "closed" }),
     };
 
-    if (includeClosed) {
-        stats.closed = await Email.countDocuments({ ...baseFilter, status: "closed" });
-        stats.total = await Email.countDocuments(baseFilter);
+    // Group-level stats (application journeys)
+    const { Group } = await import("../models/group.model.js");
+    const allGroups = await Group.find({ user_id: userId });
+    
+    const terminalStates = ["offer", "rejected", "closed"];
+    const activeGroups = allGroups.filter(g => !terminalStates.includes(g.state));
+    
+    const groupStats = {
+        totalGroups: allGroups.length,
+        activeGroups: activeGroups.length,
+        groupsByState: {}
+    };
+    
+    for (const g of allGroups) {
+        groupStats.groupsByState[g.state] = (groupStats.groupsByState[g.state] || 0) + 1;
     }
 
-    const { Group } = await import("../models/group.model.js");
-    const terminalStates = ["offer", "rejected", "closed"];
-    stats.activeGroups = await Group.countDocuments({
-        user_id: userId,
-        state: { $nin: terminalStates }
-    });
-
-    return stats;
+    return {
+        // Total = non-closed emails (for backward compat)
+        total: emailStats.totalEmails - emailStats.closed,
+        ...emailStats,
+        ...groupStats,
+    };
 };

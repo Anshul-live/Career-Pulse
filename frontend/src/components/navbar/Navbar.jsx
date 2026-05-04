@@ -38,7 +38,9 @@ export default function Navbar() {
       const res = await axios.get("http://localhost:8000/gmail/emails?status=unknown", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setUnknownCount(res.data.emails?.length || 0);
+      // Only count emails that have job_related=true and aren't resolved
+      const unknowns = (res.data.emails || []).filter(e => e.job_related !== false);
+      setUnknownCount(unknowns.length);
     } catch (error) {
       console.error("Error fetching unknown count:", error);
     }

@@ -22,7 +22,7 @@ TEMPLATES_FILE = "phrases.json"
 SUBJECT_WEIGHT = 0.7
 BODY_WEIGHT = 0.3
 BASE_THRESHOLD = 0.10
-THRESHOLD = 0.5
+THRESHOLD = 0.25
 
 BACKOFF_RULES = {
     "interview": {"keywords": {"interview", "call", "discussion", "meeting", "connect", "scheduled", "slot"}, "min_hits": 1},
@@ -172,30 +172,30 @@ def extract_with_llm(df):
     MAX_BODY_CHARS = 4000
     
     if not GEMINI_API_KEY:
-        print("[Step 3d] WARNING: No GEMINI_API_KEY set, skipping LLM extraction")
+        print("[Step 3d] No GEMINI_API_KEY set, skipping LLM extraction")
         return df
     
-    def extract_single_email(subject, body, status):
-        prompt = f"""Extract job details from this email. Return ONLY valid JSON, no explanation.
-
-Email Subject: {subject[:300]}
-Email Body: {body[:MAX_BODY_CHARS] if body else "No body"}
-Current Status: {status}
-
-Fields to extract:
-{{
-    "company_name": "Company name or null",
-    "role": "Job role/title or null",
-    "application_id": "Job application ID/reference number or null",
-    "interview_datetime": "Interview date/time or null",
-    "meeting_link": "Meeting link URL or null",
-    "test_link": "Assessment/test link URL or null",
-    "compensation": "Salary/offer amount or null",
-    "location": "Job location or null"
-}}
-
-JSON:"""
-
+    def parse_llm_json(raw_text):
+        text = raw_text.strip()
+        # Remove markdown code fences
+        if "```" in text:
+            lines = text.split("\n")
+            cleaned = []
+            inside_fence = False
+            for line in lines:
+                if line.strip().startswith("```"):
+                    inside_fence = not inside_fence
+                    continue
+                cleaned.append(line)
+            text = "\n".join(cleaned).strip()
+        if not text.startswith('{'):
+            start = text.find('{')
+            end = text.rfind('}') + 1
+            if start != -1 and end > start:
+                text = text[start:end]
+        return json.loads(text)
+    
+    def call_gemini(prompt):
         for attempt in range(3):
             try:
                 response = requests.post(
@@ -212,22 +212,19 @@ JSON:"""
                     print(f"[LLM] Rate limited, waiting {wait}s...")
                     time.sleep(wait)
                     continue
-                if response.status_code == 200:
-                    data = response.json()
-                    text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
-                    # Strip markdown fences
-                    import re
-                    if text.startswith("```"):
-                        text = re.sub(r'^```(?:json)?\s*', '', text)
-                        text = re.sub(r'\s*```$', '', text)
-                    if not text.startswith('{'):
-                        start = text.find('{')
-                        end = text.rfind('}') + 1
-                        if start != -1 and end > start:
-                            text = text[start:end]
-                    return json.loads(text)
-            except json.JSONDecodeError:
-                pass
+                if response.status_code != 200:
+                    print(f"[LLM] API error {response.status_code}: {response.text[:200]}")
+                    continue
+                data = response.json()
+                candidates = data.get("candidates", [])
+                if not candidates:
+                    continue
+                text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                if not text:
+                    continue
+                return parse_llm_json(text)
+            except json.JSONDecodeError as e:
+                print(f"[LLM] JSON parse error: {e}")
             except Exception as e:
                 print(f"[LLM] Error: {e}")
         return None
@@ -235,94 +232,93 @@ JSON:"""
     print(f"[Step 3d] Processing {len(df)} emails with Gemini ({GEMINI_MODEL})...")
     
     extracted = 0
+    garbage = 0
     for idx, row in df.iterrows():
-        result = extract_single_email(
-            row.get("subject", ""),
-            row.get("body", ""),
-            row.get("final_status", "unknown")
-        )
+        subject = str(row.get("subject", ""))[:300]
+        body = str(row.get("body", ""))[:MAX_BODY_CHARS]
+        status = row.get("final_status", "unknown")
+        
+        prompt = f"""Analyze this email and extract job application details. Return ONLY valid JSON.
+
+Email Subject: {subject}
+Email Body: {body if body else "No body"}
+Detected Status: {status}
+
+FIRST determine if this is actually a job application email. Then extract details.
+Return this JSON structure:
+{{
+    "is_job_email": true or false,
+    "company_name": "Company name or null",
+    "role": "Job role/title or null",
+    "application_id": "Application/reference ID or null",
+    "interview_datetime": "Interview date and time or null",
+    "meeting_link": "Meeting/video call URL or null",
+    "test_link": "Assessment/test URL or null",
+    "compensation": "Salary/package details or null",
+    "location": "Job location or null"
+}}
+
+If this is NOT a job application email (spam, promotions, personal, newsletters, file sharing, etc), set is_job_email to false and all other fields to null.
+
+JSON:"""
+
+        result = call_gemini(prompt)
         
         if result:
-            if result.get("company_name") and result["company_name"].lower() != "null":
-                df.at[idx, "company_name"] = result["company_name"]
-            if result.get("role") and result["role"].lower() != "null":
-                df.at[idx, "role"] = result["role"]
-            if result.get("application_id") and result["application_id"].lower() != "null":
-                df.at[idx, "application_id"] = result["application_id"]
-            if result.get("interview_datetime") and result["interview_datetime"].lower() != "null":
-                df.at[idx, "interview_datetime"] = result["interview_datetime"]
-            if result.get("meeting_link") and result["meeting_link"].lower() != "null":
-                df.at[idx, "meeting_link"] = result["meeting_link"]
-            if result.get("test_link") and result["test_link"].lower() != "null":
-                df.at[idx, "test_link"] = result["test_link"]
-            if result.get("compensation") and result["compensation"].lower() != "null":
-                df.at[idx, "compensation"] = result["compensation"]
-            if result.get("location") and result["location"].lower() != "null":
-                df.at[idx, "location"] = result["location"]
+            # Check if LLM flagged this as not a job email
+            if not result.get("is_job_email", True):
+                print(f"[LLM] Filtered non-job email: {subject[:60]}")
+                df.at[idx, "job_related"] = False
+                garbage += 1
+                continue
+            
+            for field in ["company_name", "role", "application_id", "interview_datetime",
+                          "meeting_link", "test_link", "compensation", "location"]:
+                val = result.get(field)
+                if val and str(val).lower() not in ("null", "none", ""):
+                    df.at[idx, field] = val
             extracted += 1
         
-        if extracted % 5 == 0:
+        if idx % 5 == 0:
             print(f"[Step 3d] Processed {extracted}/{len(df)} emails...")
+    
+    if garbage > 0:
+        print(f"[Step 3d] Filtered {garbage} non-job emails")
+        df = df[df["job_related"] != False].copy()
     
     print(f"[Step 3d] [OK] LLM extracted data for {extracted}/{len(df)} emails")
     return df
 
-
 def extract_application_id_regex(text):
-    """Fallback regex-based extraction of application IDs from email text."""
     if not text:
         return None
-    
     patterns = [
-        # LinkedIn job IDs in URLs
         r'linkedin\.com/jobs/view/(\d+)',
         r'linkedin\.com/jobs/(\d+)',
-        
-        # Workday IDs
         r'(?:WD|wd)\d+',
         r'workday\.com.*?job/(\w+)',
-        
-        # Greenhouse IDs
         r'greenhouse\.io.*?jobs/(\d+)',
         r'/jobs/(\d+)',
-        
-        # Lever IDs
         r'lever\.co.*?jobs/(\w+)',
-        
-        # Ashby IDs
         r'ashby\.co.*?jobs/(\w+)',
-        
-        # BambooHR
         r'bamboohr\.com.*?hire.*?/(\w+)',
-        
-        # Generic application reference
         r'(?:application\s*(?:id|#|ref|reference|no|number))[:\s]*([A-Z0-9]{4,12})',
-        
-        # Job ID patterns
         r'(?:job\s*(?:id|#|ref|reference|no|number))[:\s]*([A-Z0-9-]{4,12})',
-        
-        # Reference/Candidate ID
         r'(?:reference|candidate)\s*id[:\s]*([A-Z0-9-]{4,12})',
-        
-        # Standalone alphanumeric IDs (6-12 chars) that look like application IDs
         r'\b([A-Z]{2,4}[0-9]{4,10})\b',
         r'\b([0-9]{6,10})\b',
     ]
-    
     text_lower = text.lower()
-    
     for pattern in patterns:
         match = re.search(pattern, text_lower)
         if match:
             app_id = match.group(1) if match.lastindex else match.group(0)
             return app_id.upper() if app_id.isupper() or app_id.isdigit() else app_id
-    
     return None
 
 def upload_emails(emails, user_id, mongo_uri="mongodb://localhost:27017", db_name="college_project"):
     client = MongoClient(mongo_uri)
     db = client[db_name]
-    
     try:
         user_oid = ObjectId(user_id)
     except:
@@ -342,8 +338,6 @@ def upload_emails(emails, user_id, mongo_uri="mongodb://localhost:27017", db_nam
             company_name = email.get("company_name") or None
             role = email.get("role") or None
             application_id = email.get("application_id") or None
-            
-            # Mark as resolved only if we have both company and role
             resolved = bool(company_name and role)
             
             result = db.emails.update_one(
@@ -367,7 +361,6 @@ def upload_emails(emails, user_id, mongo_uri="mongodb://localhost:27017", db_nam
                 }},
                 upsert=True
             )
-            
             if result.upserted_id:
                 inserted += 1
             elif result.modified_count > 0:
@@ -386,12 +379,15 @@ def fetch_gmail_emails(user_tokens, max_results=500, start_date=None, end_date=N
     from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build
     
+    client_id = os.getenv("GOOGLE_CLIENT_ID")
+    client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+    
     creds = Credentials(
         token=user_tokens["googleAccessToken"],
         refresh_token=user_tokens.get("googleRefreshToken"),
         token_uri="https://oauth2.googleapis.com/token",
-        client_id=os.getenv("GOOGLE_CLIENT_ID"),
-        client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+        client_id=client_id,
+        client_secret=client_secret,
         scopes=SCOPES
     )
     
@@ -402,22 +398,20 @@ def fetch_gmail_emails(user_tokens, max_results=500, start_date=None, end_date=N
     service = build("gmail", "v1", credentials=creds)
     
     query_parts = []
-    
     if start_date:
         query_parts.append(f"after:{start_date}")
     else:
         cutoff_date = (datetime.utcnow() - timedelta(days=30)).strftime("%Y/%m/%d")
         query_parts.append(f"after:{cutoff_date}")
-    
     if end_date:
         query_parts.append(f"before:{end_date}")
     
     query = " ".join(query_parts)
-    print(f"[Fetch] Query: {query} (fetching ALL emails, ML will classify)")
+    print(f"[Fetch] Query: {query}")
     
     response = service.users().messages().list(userId="me", q=query, maxResults=max_results).execute()
     messages = response.get("messages", [])
-    print(f"[Fetch] Found {len(messages)} job-related emails")
+    print(f"[Fetch] Found {len(messages)} emails")
     
     emails = []
     for msg in messages:
@@ -427,12 +421,9 @@ def fetch_gmail_emails(user_tokens, max_results=500, start_date=None, end_date=N
             subject, sender, date = "", "", ""
             for h in headers:
                 name = h["name"].lower()
-                if name == "subject":
-                    subject = h["value"]
-                elif name == "from":
-                    sender = h["value"]
-                elif name == "date":
-                    date = h["value"]
+                if name == "subject": subject = h["value"]
+                elif name == "from": sender = h["value"]
+                elif name == "date": date = h["value"]
             
             body = ""
             if "parts" in message["payload"]:
@@ -472,7 +463,6 @@ def main():
     
     start_date = None
     end_date = None
-    
     for i in range(2, len(sys.argv)):
         if sys.argv[i] == "--start-date" and i + 1 < len(sys.argv):
             start_date = sys.argv[i + 1]
@@ -509,46 +499,40 @@ def main():
             print("[Pipeline] No job-related emails")
             sys.exit(0)
         
-        print("\n[Step 3c] Classifying application status (applied/interview/offer/etc)...")
+        print("\n[Step 3c] Classifying application status...")
         classified_df = classify_status(job_df, templates)
         
-        # Show status breakdown
         status_counts = classified_df['final_status'].value_counts().to_dict()
         print(f"[Step 3c] [OK] Status breakdown:")
         for status, count in sorted(status_counts.items()):
             print(f"       - {status}: {count}")
         
-        # Filter out opportunities - they are just notifications, not applications
         opportunity_count = len(classified_df[classified_df['final_status'] == 'opportunities'])
         if opportunity_count > 0:
-            print(f"[Step 3c] Ignoring {opportunity_count} opportunity notifications (not applications)")
+            print(f"[Step 3c] Ignoring {opportunity_count} opportunity notifications")
         final_df = classified_df[classified_df['final_status'] != 'opportunities'].copy()
         
         if len(final_df) == 0:
-            print("[Pipeline] No application emails (opportunities filtered out)")
+            print("[Pipeline] No application emails")
             sys.exit(0)
         
         final_df = extract_info(final_df)
-        
-        print("\n[Step 3d] Extracting structured data with LLM...")
+        print("\n[Step 3d] Extracting structured data with Gemini...")
         final_df = extract_with_llm(final_df)
     else:
-        print("[Pipeline] No type classifier model found, skipping type classification")
-        print("[Pipeline] Treating all emails as job-related, running stage classification...")
+        print("[Pipeline] No type classifier model, skipping type classification")
         templates = load_templates()
         final_df = df.copy()
         final_df["job_related"] = True
         final_df["confidence"] = 0.5
-
         final_df = classify_status(final_df, templates)
-
+        
         status_counts = final_df['final_status'].value_counts().to_dict()
         print(f"[Step 3c] [OK] Status breakdown:")
         for status, count in sorted(status_counts.items()):
             print(f"       - {status}: {count}")
-
+        
         final_df = extract_info(final_df)
-
         print("\n[Step 3d] Extracting structured data with Gemini...")
         final_df = extract_with_llm(final_df)
     

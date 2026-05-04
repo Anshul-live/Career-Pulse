@@ -470,77 +470,25 @@ export const reprocessEmails = async (req, res) => {
         const { Email } = await import("../models/email.model.js");
         const { Group } = await import("../models/group.model.js");
         
+        // Clear all existing groups and reset email group references
         await Group.deleteMany({ user_id: userId });
         await Email.updateMany({ user_id: userId }, { group_id: null });
         
+        // Get all emails and re-group using the shared service
         const allEmails = await Email.find({ user_id: userId });
         console.log(`[Reprocess] Found ${allEmails.length} emails to process`);
 
-        let grouped = 0;
+        const allEmailIds = allEmails.map(e => e._id);
+        const groupResult = await processGroupsForUser(userId, allEmailIds);
 
-        for (const email of allEmails) {
-            let existingGroup = null;
-            const orConditions = [];
-            
-            if (email.application_id) {
-                orConditions.push({ application_id: email.application_id });
-            }
-            if (email.thread_id) {
-                orConditions.push({ thread_id: email.thread_id });
-            }
-            
-            if (orConditions.length > 0) {
-                existingGroup = await Group.findOne({
-                    user_id: userId,
-                    $or: orConditions
-                });
-            }
-
-            if (existingGroup) {
-                if (!existingGroup.email_ids.includes(email._id)) {
-                    existingGroup.email_ids.push(email._id);
-                    if (email.company_name && !existingGroup.company_name) {
-                        existingGroup.company_name = email.company_name;
-                    }
-                    if (email.role && !existingGroup.role) {
-                        existingGroup.role = email.role;
-                    }
-                    await existingGroup.save();
-                }
-                email.group_id = existingGroup._id;
-                await email.save();
-                grouped++;
-            } else {
-                const newGroup = new Group({
-                    user_id: userId,
-                    company_name: email.company_name || "Unknown",
-                    role: email.role || "Unknown",
-                    application_id: email.application_id || null,
-                    thread_id: email.thread_id || null,
-                    state: email.status || "unknown",
-                    timeline: [{
-                        status: email.status || "unknown",
-                        date: email.date || new Date(),
-                        from_email_id: email._id,
-                        triggered_by: "system"
-                    }],
-                    email_ids: [email._id]
-                });
-                await newGroup.save();
-                email.group_id = newGroup._id;
-                await email.save();
-                grouped++;
-            }
-        }
-
-        console.log(`[Reprocess] Done: ${grouped} emails grouped`);
+        console.log(`[Reprocess] Done: ${groupResult.created} groups created, ${groupResult.updated} updated`);
 
         const groups = await getGroupsWithEmails(userId, { include_closed: true });
 
         res.json({
             success: true,
-            message: `Processed ${allEmails.length} emails: ${grouped} groups created`,
-            grouped,
+            message: `Processed ${allEmails.length} emails: ${groupResult.created} groups created`,
+            grouped: groupResult.created + groupResult.updated,
             groups
         });
     } catch (error) {

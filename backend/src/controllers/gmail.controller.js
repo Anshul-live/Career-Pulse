@@ -366,7 +366,25 @@ export const syncEmails = async (req, res) => {
             spawnArgs.push("--end-date", endDate);
         }
 
-        const pipelineProcess = spawn("python3", ["-u", ...spawnArgs], {
+        // Find Python - check common locations
+        const pythonPaths = [
+            process.env.PYTHON_PATH,
+            path.join(process.env.LOCALAPPDATA || "", "Programs", "Python", "Python312", "python.exe"),
+            "python",
+            "python3",
+        ].filter(Boolean);
+
+        let pythonCmd = "python3";
+        for (const p of pythonPaths) {
+            try {
+                const { execSync } = await import("child_process");
+                execSync(`"${p}" --version`, { stdio: "ignore" });
+                pythonCmd = p;
+                break;
+            } catch {}
+        }
+
+        const pipelineProcess = spawn(pythonCmd, ["-u", ...spawnArgs], {
             cwd: pipelineDir
         });
 

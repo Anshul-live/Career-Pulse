@@ -207,7 +207,7 @@ export default function Groups() {
                       {entry.status}
                     </span>
                   </div>
-                  <p className="font-medium text-zinc-100">{entry.subject || "No subject"}</p>
+                  <p className="font-medium text-zinc-100">{entry.data?.company_name || entry.subject || "No subject"} - {entry.data?.role || ""}</p>
                   {relevantFields.length > 0 && (
                     <div className="flex flex-wrap items-center gap-3 mt-2">
                       {relevantFields.map((field, fieldIdx) => (

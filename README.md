@@ -12,8 +12,8 @@ Automatic job application tracking system that processes Gmail emails through a 
                            │                     │
                            │                     ▼
                      ┌─────▼─────┐        ┌────────────┐
-                     │  Ollama   │        │  MongoDB   │
-                     │  (LLM)    │        └────────────┘
+                     │  Gemini   │        │  MongoDB   │
+                     │   API     │        └────────────┘
                      └───────────┘
 ```
 
@@ -22,7 +22,7 @@ Automatic job application tracking system that processes Gmail emails through a 
 1. **Fetch** - Gmail API fetches emails for authenticated user
 2. **Type Classify** - ML model (TF-IDF + Logistic Regression) filters job-related emails
 3. **Stage Classify** - TF-IDF cosine similarity classifies status (applied, interview, etc.)
-4. **Extract** - Ollama LLM extracts structured data (company, role, interview time, etc.)
+4. **Extract** - Gemini API extracts structured data (company, role, interview time, etc.)
 5. **Upload** - Direct MongoDB upsert
 
 ## Prerequisites
@@ -30,7 +30,7 @@ Automatic job application tracking system that processes Gmail emails through a 
 - **Node.js** (v18+) + npm
 - **Python** (3.9+) + pip
 - **MongoDB** (local or Atlas)
-- **Ollama** (for LLM extraction)
+- **Gemini API Key** (for LLM extraction — get from https://aistudio.google.com/app/apikey)
 - **Google Cloud Console** project (for Gmail API)
 
 ## Project Structure
@@ -63,7 +63,6 @@ python3 careerpulse.py --pipeline --skip-fetch --upload
 
 **careerpulse.py** automatically:
 - Starts MongoDB (if not running via brew services)
-- Checks Ollama status
 - Starts Backend on http://localhost:8000
 - Starts Frontend on http://localhost:5173
 
@@ -160,12 +159,13 @@ pip install -r requirements.txt
 
 1. Place your `credentials.json` (from Step 1) in the `pipeline/` folder
 
-**Start Ollama (for extraction):**
+**Start Gemini API:**
 
-```bash
-# Install Ollama from https://ollama.ai
-ollama serve
-ollama pull llama3.1:8b
+1. Get your API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
+2. Add it to `pipeline/.env`:
+
+```env
+GEMINI_API_KEY=your_api_key_here
 ```
 
 ---
@@ -201,7 +201,7 @@ python3 type_classifier.py
 # 3. Classify by status
 python3 stage_classifier.py
 
-# 4. Extract data (requires Ollama)
+# 4. Extract data (requires Gemini API key)
 python3 extract.py
 
 # 5. Convert to JSON
@@ -376,9 +376,10 @@ This will create a new `job_email_classifier.joblib` file using `corpus.csv`.
 - Verify MongoDB is running: `brew services list | grep mongodb`
 - Check `MONGODB_URI` in backend/.env
 
-### Ollama Errors
-- Ensure Ollama is running: `ollama serve`
-- Pull the model: `ollama pull llama3.1:8b`
+### Gemini API Errors
+- Ensure GEMINI_API_KEY is set in pipeline/.env
+- Check your API quota at https://aistudio.google.com/app/apikey
+- Default model is gemini-2.0-flash; override with GEMINI_MODEL env var
 
 ### Token Issues
 - Delete `.token` file and run with `--login` flag
@@ -390,5 +391,5 @@ This will create a new `job_email_classifier.joblib` file using `corpus.csv`.
 
 - **Frontend:** React 19, Vite, Tailwind CSS 4, React Router, Recharts
 - **Backend:** Express.js 5, MongoDB/Mongoose, Passport.js (Google OAuth), JWT
-- **ML Pipeline:** scikit-learn (TF-IDF), Ollama (llama3.1:8b)
+- **ML Pipeline:** scikit-learn (TF-IDF), Google Gemini API
 - **Gmail API:** Google APIs Client Library for Python

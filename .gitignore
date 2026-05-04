@@ -1,12 +1,14 @@
 # Dependencies
 node_modules/
-backend/node_modules/
-frontend/node_modules/
 venv/
 env/
+
+# Environment files
 .env
 .env.local
 .env.*.local
+backend/.env
+pipeline/.env
 
 # Python
 __pycache__/
@@ -15,42 +17,34 @@ __pycache__/
 *.egg-info/
 *.egg
 
-# Pipeline data (regenerate on first run)
+# Pipeline data (regenerated on each run)
 *.csv
 extracted.json
 .token
+extracted/
+status_outputs/
+pipeline/logs/
+
+# Pipeline trained model (regenerate with train_type_classifier.py)
+*.joblib
+
+# Keep essential pipeline config
+!pipeline/phrases.json
 
 # Credentials & secrets
 credentials.json
 token.json
-backend/.env
-pipeline/.env
 
 # Logs
 *.log
 logs/
-pipeline/logs/
-backend/logs/
 
 # Build outputs
 dist/
 build/
-backend/public/
 
 # Temp & cache
 temp/
-backend/temp/
-pipeline/temp/
-extracted/
-status_outputs/
-__pycache__/
-*.joblib
-
-# Pipeline trained model (regenerate with train script)
-pipeline/job_email_classifier.joblib
-
-# Keep essential pipeline config
-!pipeline/phrases.json
 
 # OS
 .DS_Store

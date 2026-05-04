@@ -152,26 +152,6 @@ def setup_demo(reset=False):
     result = subprocess.run(cmd, cwd=PROJECT_ROOT)
     return result.returncode == 0
 
-def check_ollama():
-    """Check if Ollama is running."""
-    try:
-        result = subprocess.run(
-            ["ollama", "list"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        if result.returncode == 0 and "llama3.1" in result.stdout:
-            print("Ollama with llama3.1:8b is ready")
-            return True
-    except:
-        pass
-    
-    print("Warning: Ollama not running or llama3.1:8b not installed")
-    print("  Run: ollama serve")
-    print("  Run: ollama pull llama3.1:8b")
-    return False
-
 def print_status():
     """Print current service status."""
     print("\n" + "="*50)
@@ -236,8 +216,6 @@ def main():
         print("DEMO MODE")
         print("="*50)
         setup_demo(reset=args.reset_demo)
-    else:
-        check_ollama()
     
     start_backend()
     start_frontend()

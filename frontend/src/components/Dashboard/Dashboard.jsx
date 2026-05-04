@@ -448,7 +448,7 @@ export default function Dashboard() {
                               <div className="flex items-start justify-between">
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 mb-1">
-                                    <p className="font-medium text-zinc-100 truncate">{email.subject || "No Subject"}</p>
+                                    <p className="font-medium text-zinc-100 truncate">{email.company_name || "Unknown Company"} - {email.role || "Unknown Role"}</p>
                                     <span className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium", statusColors[email.status]?.bg, statusColors[email.status]?.text)}>
                                       {statusIcons[email.status]}
                                       {email.status}

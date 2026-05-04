@@ -28,7 +28,7 @@ Gmail API → Type Classifier → Stage Classifier → Extraction → Database
 - **Fallback:** Keyword-based backoff rules
 
 ### 4. Data Extraction (LLM)
-- **Model:** Ollama (llama3.1:8b)
+- **Model:** Google Gemini API (gemini-2.0-flash)
 - **Purpose:** Verify status + extract structured fields
 - **Fields:** company_name, role, interview_datetime, compensation, etc.
 
@@ -39,7 +39,7 @@ Gmail API → Type Classifier → Stage Classifier → Extraction → Database
 - **Frontend:** React + Vite + Tailwind CSS
 - **Backend:** Express.js + MongoDB
 - **ML:** scikit-learn (TF-IDF)
-- **LLM:** Ollama (local)
+- **LLM:** Google Gemini API
 - **Auth:** Google OAuth 2.0 + JWT
 
 ## Key Features

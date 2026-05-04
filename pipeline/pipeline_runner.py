@@ -7,12 +7,12 @@ This pipeline processes job application emails through multiple stages:
 1. fetch_emails.py    - Fetch emails from Gmail (requires credentials.json)
 2. type_classifier.py - Classify emails as job-related or not
 3. stage_classifier.py - Classify job emails by status (applied, interview, etc.)
-4. extract.py         - Extract structured data using Ollama LLM + status validation
+4. extract.py         - Extract structured data using Gemini API + status validation
 5. convert_to_json.py - Convert to JSON for upload
 6. upload_to_backend.py - Upload to backend (optional)
 
 Requirements:
-    - Ollama running (for extract.py)
+    - Gemini API key (for extract.py, set in pipeline/.env)
     - credentials.json for fetch_emails.py (if fetching from Gmail)
     - Backend running for lastFetchDate tracking
 
@@ -386,7 +386,7 @@ def main():
 
     print("Job Email Processing Pipeline")
     print("=" * 50)
-    print("Using Ollama for extraction + status validation")
+    print("Using Gemini API for extraction")
 
     # Get token
     token = args.token
@@ -474,8 +474,8 @@ def main():
 
     # Step 4: Feature extraction
     success, count = run(["python3", "extract.py"],
-    stage_name="Feature Extraction (LLM)",
-    details={"model": "llama3.1:8b"})
+    stage_name="Feature Extraction (Gemini)",
+    details={"model": os.getenv("GEMINI_MODEL", "gemini-2.5-flash")})
 
     # Step 5: Convert to JSON
     success, count = run(

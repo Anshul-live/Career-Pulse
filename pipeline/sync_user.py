@@ -5,10 +5,14 @@ import os
 import sys
 import re
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
 from pymongo import MongoClient
 from bson import ObjectId
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+
+# Load pipeline .env (for GEMINI_API_KEY)
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
@@ -160,57 +164,75 @@ def extract_info(df):
 
 def extract_with_llm(df):
     import requests
-    import asyncio
+    import time
     
-    OLLAMA_URL = "http://localhost:11434/api/generate"
-    OLLAMA_MODEL = "llama3.1:8b"
-    MAX_BODY_CHARS = 8000
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+    MAX_BODY_CHARS = 4000
+    
+    if not GEMINI_API_KEY:
+        print("[Step 3d] WARNING: No GEMINI_API_KEY set, skipping LLM extraction")
+        return df
     
     def extract_single_email(subject, body, status):
-        prompt = f"""You are a job application data extractor. Extract structured information from this email.
+        prompt = f"""Extract job details from this email. Return ONLY valid JSON, no explanation.
 
 Email Subject: {subject[:300]}
 Email Body: {body[:MAX_BODY_CHARS] if body else "No body"}
 Current Status: {status}
 
-Extract ONLY these fields (return JSON only, no explanation):
+Fields to extract:
 {{
     "company_name": "Company name or null",
     "role": "Job role/title or null",
     "application_id": "Job application ID/reference number or null",
     "interview_datetime": "Interview date/time or null",
-    "meeting_link": "Meeting link (meet.google, zoom, teams) or null",
-    "test_link": "Assessment/test link or null",
+    "meeting_link": "Meeting link URL or null",
+    "test_link": "Assessment/test link URL or null",
     "compensation": "Salary/offer amount or null",
     "location": "Job location or null"
 }}
 
-Return ONLY the JSON object, nothing else."""
+JSON:"""
 
-        try:
-            response = requests.post(
-                OLLAMA_URL,
-                json={
-                    "model": OLLAMA_MODEL,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {"temperature": 0.1}
-                },
-                timeout=30
-            )
-            if response.status_code == 200:
-                result = response.json()
-                text = result.get("response", "").strip()
-                import json
-                try:
-                    data = json.loads(text)
-                    return data
-                except:
-                    pass
-        except Exception as e:
-            print(f"[LLM] Error: {e}")
+        for attempt in range(3):
+            try:
+                response = requests.post(
+                    f"{GEMINI_URL}?key={GEMINI_API_KEY}",
+                    json={
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 512}
+                    },
+                    headers={"Content-Type": "application/json"},
+                    timeout=30
+                )
+                if response.status_code == 429:
+                    wait = 2 ** (attempt + 1)
+                    print(f"[LLM] Rate limited, waiting {wait}s...")
+                    time.sleep(wait)
+                    continue
+                if response.status_code == 200:
+                    data = response.json()
+                    text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                    # Strip markdown fences
+                    import re
+                    if text.startswith("```"):
+                        text = re.sub(r'^```(?:json)?\s*', '', text)
+                        text = re.sub(r'\s*```$', '', text)
+                    if not text.startswith('{'):
+                        start = text.find('{')
+                        end = text.rfind('}') + 1
+                        if start != -1 and end > start:
+                            text = text[start:end]
+                    return json.loads(text)
+            except json.JSONDecodeError:
+                pass
+            except Exception as e:
+                print(f"[LLM] Error: {e}")
+        return None
     
-    print(f"[Step 3d] Processing {len(df)} emails with LLM...")
+    print(f"[Step 3d] Processing {len(df)} emails with Gemini ({GEMINI_MODEL})...")
     
     extracted = 0
     for idx, row in df.iterrows():
@@ -242,7 +264,7 @@ Return ONLY the JSON object, nothing else."""
         if extracted % 5 == 0:
             print(f"[Step 3d] Processed {extracted}/{len(df)} emails...")
     
-    print(f"[Step 3d] ✓ LLM extracted data for {extracted}/{len(df)} emails")
+    print(f"[Step 3d] [OK] LLM extracted data for {extracted}/{len(df)} emails")
     return df
 
 
@@ -461,11 +483,11 @@ def main():
     
     print("[Pipeline] Step 1: Getting user tokens...")
     user = get_user_tokens(user_id)
-    print(f"[Step 1] ✓ User authenticated: {user.get('email')}")
+    print(f"[Step 1] [OK] User authenticated: {user.get('email')}")
     
     print("\n[Pipeline] Step 2: Fetching emails from Gmail...")
     emails = fetch_gmail_emails(user, max_results=500, start_date=start_date, end_date=end_date)
-    print(f"[Step 2] ✓ Fetched {len(emails)} emails from Gmail")
+    print(f"[Step 2] [OK] Fetched {len(emails)} emails from Gmail")
     
     if not emails:
         print("[Pipeline] No emails found")
@@ -481,7 +503,7 @@ def main():
         
         print("[Step 3b] Classifying job-related emails...")
         job_df = classify_job_emails(df, model)
-        print(f"[Step 3b] ✓ Classified: {len(job_df)}/{len(df)} are job-related")
+        print(f"[Step 3b] [OK] Classified: {len(job_df)}/{len(df)} are job-related")
         
         if len(job_df) == 0:
             print("[Pipeline] No job-related emails")
@@ -492,7 +514,7 @@ def main():
         
         # Show status breakdown
         status_counts = classified_df['final_status'].value_counts().to_dict()
-        print(f"[Step 3c] ✓ Status breakdown:")
+        print(f"[Step 3c] [OK] Status breakdown:")
         for status, count in sorted(status_counts.items()):
             print(f"       - {status}: {count}")
         
@@ -511,12 +533,24 @@ def main():
         print("\n[Step 3d] Extracting structured data with LLM...")
         final_df = extract_with_llm(final_df)
     else:
-        print("[Pipeline] No model found, using basic classification")
+        print("[Pipeline] No type classifier model found, skipping type classification")
+        print("[Pipeline] Treating all emails as job-related, running stage classification...")
+        templates = load_templates()
         final_df = df.copy()
         final_df["job_related"] = True
-        final_df["final_status"] = "unknown"
         final_df["confidence"] = 0.5
+
+        final_df = classify_status(final_df, templates)
+
+        status_counts = final_df['final_status'].value_counts().to_dict()
+        print(f"[Step 3c] [OK] Status breakdown:")
+        for status, count in sorted(status_counts.items()):
+            print(f"       - {status}: {count}")
+
         final_df = extract_info(final_df)
+
+        print("\n[Step 3d] Extracting structured data with Gemini...")
+        final_df = extract_with_llm(final_df)
     
     print("\n[Pipeline] Step 4: Uploading to database...")
     records = final_df.to_dict("records")

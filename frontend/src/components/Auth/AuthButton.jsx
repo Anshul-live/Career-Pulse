@@ -2,7 +2,7 @@
 export default function AuthButtons() {
   const handleGoogle = () => {
     // open backend OAuth route
-    window.location.href ="http://localhost:4000/auth/google";
+    window.location.href ="http://localhost:8000/auth/google";
   };
 
   return (

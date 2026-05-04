@@ -40,7 +40,7 @@ const Signup = () => {
   };
 
   const handleGoogleAuth = () => {
-    window.location.href = "http://localhost:8000/google";
+    window.location.href = "http://localhost:8000/auth/google";
   };
 
   return (

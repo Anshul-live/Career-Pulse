@@ -132,7 +132,7 @@ export default function Dashboard() {
 
   const handleSync = async () => {
     if (!gmailConnected) {
-      window.location.href = "http://localhost:8000/google";
+      window.location.href = "http://localhost:8000/auth/google";
       return;
     }
     setShowSyncModal(true);
@@ -515,7 +515,7 @@ export default function Dashboard() {
                 <p className="text-zinc-400">No applications yet</p>
                 {gmailConnected === false && (
                   <button 
-                onClick={() => window.location.href = "http://localhost:8000/google"}
+                onClick={() => window.location.href = "http://localhost:8000/auth/google"}
                     className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-colors mx-auto"
                   >
                     <Mail className="w-4 h-4" />
